@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { EmptyRow, PageHeader, TableWrap } from "@/components/ui/page";
 import { listCommunications } from "@/services/pec";
+import { PecRowActions } from "./pec-row-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,14 @@ export default async function CommunicationsPage({
             <th>Stato</th>
             <th className="num">Ricevute</th>
             <th>Inviata</th>
+            <th className="num">Azione</th>
           </tr>
         </thead>
         <tbody>
           {res.data.length === 0 && (
-            <EmptyRow cols={6}>
-              Nessuna PEC. Da un'offerta pubblicata puoi comporre la bozza, approvarla e inviarla.
+            <EmptyRow cols={7}>
+              Nessuna PEC. Alla pubblicazione di un'offerta la bozza viene preparata in automatico,
+              personalizzata con dominio e link alla pagina di vendita.
             </EmptyRow>
           )}
           {res.data.map((c) => (
@@ -48,6 +51,9 @@ export default async function CommunicationsPage({
               <td className="num text-sm">{c.receipts.length}</td>
               <td className="text-xs text-[var(--ink-soft)]">
                 {c.sentAt ? c.sentAt.toLocaleString("it-IT") : "–"}
+              </td>
+              <td className="num">
+                <PecRowActions id={c.id} status={c.status} />
               </td>
             </tr>
           ))}

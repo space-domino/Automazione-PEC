@@ -384,6 +384,10 @@ export async function autoPublishForDomain(
     const offer = await createOffer(domainId, { sellingPrice: price }, actor);
     await publishOffer(offer.id, actor);
     log.info({ domainId, offerId: offer.id, price }, "offerta creata e pubblicata in automatico");
+
+    // subito dopo: prepara (ed eventualmente invia) la PEC personalizzata
+    await autoPecForOffer(offer.id, actor);
+
     return { status: "published", offerId: offer.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -400,6 +404,43 @@ export async function autoPublishForDomain(
       })
       .catch(() => {});
     return { status: "failed", reason: msg };
+  }
+}
+
+/**
+ * Dopo la pubblicazione: compone la bozza PEC personalizzata (il template viene
+ * reso con dominio + link alla pagina di vendita di QUESTO cliente). Se
+ * `pec.auto_send` è attivo, la approva e la invia. NON lancia: gli errori
+ * diventano Notification. La bozza resta comunque disponibile in /communications.
+ */
+async function autoPecForOffer(offerId: string, actor: Actor): Promise<void> {
+  try {
+    if (!(await getSetting("pec.auto_compose"))) return;
+
+    const { composePecDraft } = await import("@/services/pec/compose");
+    const comm = await composePecDraft(offerId, {}, actor);
+    log.info({ offerId, communicationId: comm.id }, "bozza PEC preparata in automatico");
+
+    if (await getSetting("pec.auto_send")) {
+      const { approvePec, sendApprovedPec } = await import("@/services/pec/send");
+      await approvePec(comm.id, actor);
+      const res = await sendApprovedPec(comm.id, actor);
+      log.info({ offerId, communicationId: comm.id, res }, "PEC inviata in automatico");
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn({ offerId, err: msg }, "auto-PEC non completata");
+    await db.notification
+      .create({
+        data: {
+          type: "pec.auto.failed",
+          title: "PEC automatica non completata",
+          body: msg,
+          severity: "WARN",
+          data: { offerId } as Prisma.InputJsonValue,
+        },
+      })
+      .catch(() => {});
   }
 }
 

@@ -39,6 +39,10 @@ const DEFAULTS = {
   "price.default": 499,
   /** quando un dominio passa a PURCHASED: crea+pubblica l'offerta in automatico (M7/M13). */
   "offers.auto_publish": true as boolean,
+  /** dopo la pubblicazione dell'offerta: prepara in automatico la bozza PEC (personalizzata). */
+  "pec.auto_compose": true as boolean,
+  /** dopo la compose automatica: approva e invia senza intervento umano. Default OFF. */
+  "pec.auto_send": false as boolean,
   "pec.max_per_hour": 20,
   /** MessageTemplate PEC_BODY attivo (id). "" => usa il primo PEC_BODY isActive. */
   "pec.active_template": "" as string,
