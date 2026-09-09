@@ -37,6 +37,8 @@ const DEFAULTS = {
   "availability.cache_ttl_hours": 24,
   "availability.recheck_days": 14,
   "price.default": 499,
+  /** quando un dominio passa a PURCHASED: crea+pubblica l'offerta in automatico (M7/M13). */
+  "offers.auto_publish": true as boolean,
   "pec.max_per_hour": 20,
   /** MessageTemplate PEC_BODY attivo (id). "" => usa il primo PEC_BODY isActive. */
   "pec.active_template": "" as string,

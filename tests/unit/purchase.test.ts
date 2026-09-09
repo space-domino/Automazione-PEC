@@ -14,10 +14,12 @@ const h = vi.hoisted(() => {
       domain: tx.domain,
       auditLog: tx.auditLog,
     },
+    autoPublish: vi.fn().mockResolvedValue({ status: "published", offerId: "o1" }),
   };
 });
 
 vi.mock("@/lib/db", () => ({ db: h.db }));
+vi.mock("@/services/offers", () => ({ autoPublishForDomain: h.autoPublish }));
 
 import { ConflictError } from "@/lib/api/errors";
 import { markAsPurchased, markPurchasedSchema, updateDomainPricing } from "@/services/purchase";
@@ -75,6 +77,8 @@ describe("markAsPurchased", () => {
       purchaseCurrency: "EUR",
       purchasedByUserId: "u1",
     });
+    // dopo l'acquisto scatta l'auto-pubblicazione dell'offerta
+    expect(h.autoPublish).toHaveBeenCalledWith("d1", { userId: "u1" }, { enabled: undefined });
   });
 
   it("con override transiziona anche se availabilityResult non è AVAILABLE", async () => {

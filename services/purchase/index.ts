@@ -1,5 +1,6 @@
 import { ConflictError, ValidationError } from "@/lib/api/errors";
 import { db } from "@/lib/db";
+import { autoPublishForDomain } from "@/services/offers";
 import { domainStateConfig, transition, writeAudit } from "@/services/state-machine";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -16,12 +17,18 @@ export const markPurchasedSchema = z.object({
   purchasedAt: z.coerce.date().default(() => new Date()),
   purchaseNotes: z.string().trim().max(2000).optional(),
   override: z.boolean().optional(),
+  /** on/off dell'auto-pubblicazione per questa chiamata (default: Setting `offers.auto_publish`) */
+  autoPublish: z.boolean().optional(),
 });
 export type MarkPurchasedInput = z.infer<typeof markPurchasedSchema>;
 
-/** 🚦G2 — l'acquisto è avvenuto FUORI dalla piattaforma; qui se ne registra il fatto. */
-export function markAsPurchased(domainId: string, input: MarkPurchasedInput, actor: Actor) {
-  return transition(
+/**
+ * 🚦G2 — l'acquisto è avvenuto FUORI dalla piattaforma; qui se ne registra il fatto.
+ * Se `offers.auto_publish` è attivo (default), subito dopo crea e pubblica
+ * l'offerta → la pagina compare su spacedomino, senza passaggi manuali.
+ */
+export async function markAsPurchased(domainId: string, input: MarkPurchasedInput, actor: Actor) {
+  const result = await transition(
     domainStateConfig,
     domainId,
     "PURCHASED",
@@ -41,6 +48,11 @@ export function markAsPurchased(domainId: string, input: MarkPurchasedInput, act
       purchasedByUserId: actor.userId ?? null,
     },
   );
+
+  if (result.changed) {
+    await autoPublishForDomain(domainId, actor, { enabled: input.autoPublish });
+  }
+  return result;
 }
 
 export function discardDomain(domainId: string, reason: string, actor: Actor) {

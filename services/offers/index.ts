@@ -1,7 +1,9 @@
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { QUEUE_NAMES, enqueue } from "@/lib/queue";
+import { getSetting } from "@/lib/settings";
 import { slugify } from "@/lib/text";
 import {
   domainStateConfig,
@@ -334,6 +336,71 @@ export async function reviveOffer(offerId: string, actor: Actor) {
     reason: "offerta riaperta",
   });
   return getOffer(offerId);
+}
+
+// ---------------------------------------------------------------------------
+//  Auto-pubblicazione dopo l'acquisto
+// ---------------------------------------------------------------------------
+
+const log = logger.child({ svc: "offers" });
+
+export interface AutoPublishResult {
+  status: "published" | "skipped" | "failed";
+  offerId?: string;
+  reason?: string;
+}
+
+/**
+ * Chiamato quando un Domain passa a PURCHASED: crea e pubblica l'offerta in
+ * automatico (prezzo = `Domain.sellingPrice`, altrimenti Setting `price.default`),
+ * facendo comparire la pagina su spacedomino. NON lancia: in caso di errore
+ * registra una Notification e restituisce lo stato.
+ *
+ * @param opts.enabled  forza on/off ignorando il Setting `offers.auto_publish`
+ */
+export async function autoPublishForDomain(
+  domainId: string,
+  actor: Actor,
+  opts: { enabled?: boolean } = {},
+): Promise<AutoPublishResult> {
+  try {
+    const on = opts.enabled ?? (await getSetting("offers.auto_publish"));
+    if (!on) return { status: "skipped", reason: "offers.auto_publish disattivato" };
+
+    const domain = await db.domain.findUnique({
+      where: { id: domainId },
+      include: { offer: { where: { deletedAt: null }, select: { id: true } } },
+    });
+    if (!domain || domain.deletedAt) return { status: "skipped", reason: "dominio inesistente" };
+    if (domain.offer) return { status: "skipped", reason: "offerta già presente" };
+    if (domain.status !== "PURCHASED") {
+      return { status: "skipped", reason: `dominio in stato ${domain.status}` };
+    }
+
+    const price =
+      (domain.sellingPrice ? Number(domain.sellingPrice) : null) ??
+      (await getSetting("price.default"));
+
+    const offer = await createOffer(domainId, { sellingPrice: price }, actor);
+    await publishOffer(offer.id, actor);
+    log.info({ domainId, offerId: offer.id, price }, "offerta creata e pubblicata in automatico");
+    return { status: "published", offerId: offer.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error({ domainId, err: msg }, "auto-pubblicazione offerta fallita");
+    await db.notification
+      .create({
+        data: {
+          type: "offer.autopublish.failed",
+          title: "Auto-pubblicazione offerta fallita",
+          body: msg,
+          severity: "WARN",
+          data: { domainId } as Prisma.InputJsonValue,
+        },
+      })
+      .catch(() => {});
+    return { status: "failed", reason: msg };
+  }
 }
 
 // ---------------------------------------------------------------------------
