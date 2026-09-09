@@ -1,0 +1,14 @@
+# Override per USO LOCALE / LAN: pubblica la dashboard su :3000 senza Caddy né domini.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build postgres redis web worker
+#
+# La dashboard è poi su http://localhost:3000 (o http://<IP-DEL-PC>:3000 dalla LAN,
+# ricordandosi di impostare AUTH_URL / APP_BASE_URL / PUBLIC_BASE_URL con quell'indirizzo
+# e di aprire la porta 3000 nel firewall).
+#
+# Per un deploy con dominio + HTTPS usa invece il solo docker-compose.yml (Caddy incluso).
+
+services:
+  web:
+    ports:
+      - "3000:3000"

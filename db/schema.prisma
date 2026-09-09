@@ -1,0 +1,750 @@
+// ============================================================================
+//  Domain Reselling Platform — schema.prisma  (sezione C del design)
+//  PostgreSQL 16 + Prisma. Aggiunte non esprimibili qui (CHECK, estensioni,
+//  indici trigram/parziali) stanno in db/sql/hardening.sql -> migrazione dedicata.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  // "native" = engine dell'OS corrente. `prisma generate` gira sia in locale
+  // sia dentro il build Docker, quindi ognuno ottiene il proprio engine.
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+//  ENUMS
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum ActorType {
+  USER
+  SYSTEM
+  WEBHOOK
+}
+
+enum ImportBatchStatus {
+  PENDING
+  MAPPING
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum ImportRowStatus {
+  IMPORTED
+  DUPLICATE
+  SKIPPED
+  ERROR
+}
+
+/// Macchina a stati principale del ciclo di vita di un dominio (sezione E).
+enum DomainStatus {
+  DISCOVERED
+  AVAILABLE
+  REGISTERED
+  DISCARDED
+  PURCHASE_PENDING
+  PURCHASED
+  OFFER_DRAFT
+  OFFER_PUBLISHED
+  PEC_DRAFT
+  PEC_APPROVED
+  PEC_SENT
+  CUSTOMER_INTERESTED
+  CHECKOUT_STARTED
+  PAID
+  SOLD
+  TRANSFER_PENDING
+  TRANSFERRED
+  TRANSFER_FAILED
+  REFUNDED
+  BLOCKED
+}
+
+/// Esito grezzo della verifica di disponibilità (sezione 7).
+enum AvailabilityResult {
+  AVAILABLE
+  REGISTERED
+  UNKNOWN
+  ERROR
+}
+
+enum OfferStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  SOLD
+  WITHDRAWN
+}
+
+enum CommunicationChannel {
+  PEC
+  EMAIL
+}
+
+enum CommunicationStatus {
+  DRAFT
+  APPROVED
+  QUEUED
+  SENDING
+  SENT
+  ACCEPTED
+  DELIVERED
+  FAILED
+  BOUNCED
+  CANCELLED
+}
+
+/// Tipi di ricevuta PEC (contenuto del daticert.xml).
+enum ReceiptType {
+  ACCEPTANCE
+  NON_ACCEPTANCE
+  TAKING_CHARGE
+  DELIVERY
+  NON_DELIVERY
+  ERROR
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FULFILLMENT_PENDING
+  TRANSFERRED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+/// Origine dell'ordine (sezione M8). Il pagamento avviene sullo storefront
+/// spacedomino.it (Stripe loro): la piattaforma lo rileva e lo registra.
+enum OrderSource {
+  SPACEDOMINO // rilevato dal DB dello storefront
+  MANUAL // inserito a mano da un operatore
+  PLATFORM_STRIPE // riservato: checkout ospitato dalla piattaforma (non usato)
+}
+
+enum SuppressionType {
+  PEC_ADDRESS
+  COMPANY
+  DOMAIN
+  VAT
+}
+
+enum SuppressionReason {
+  MANUAL_BLOCK
+  OPT_OUT
+  BOUNCE
+  COMPLAINT
+  LEGAL
+}
+
+enum JobStatus {
+  QUEUED
+  ACTIVE
+  COMPLETED
+  FAILED
+  DELAYED
+  RETRYING
+}
+
+enum AiCallType {
+  DOMAIN_DISCOVERY
+  DOMAIN_RANKING
+  COMPANY_ANALYSIS
+  PEC_GENERATION
+  TEXT_IMPROVEMENT
+}
+
+enum TemplateType {
+  PEC_SUBJECT
+  PEC_BODY
+  LANDING_PAGE
+}
+
+enum NotificationSeverity {
+  INFO
+  WARN
+  ERROR
+}
+
+// ============================================================================
+//  AUTH (Auth.js v5 + campi applicativi)
+// ============================================================================
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  role         UserRole  @default(ADMIN)
+  passwordHash String? // argon2id
+  totpSecret   String? // cifrato a livello applicativo (lib/crypto)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+//  IMPORT CSV
+// ============================================================================
+
+model ImportBatch {
+  id               String            @id @default(cuid())
+  originalFilename String
+  storagePath      String
+  status           ImportBatchStatus @default(PENDING)
+  detectedEncoding String?
+  delimiter        String?
+  columnMapping    Json?
+  totalRows        Int               @default(0)
+  importedCount    Int               @default(0)
+  duplicateCount   Int               @default(0)
+  skippedCount     Int               @default(0)
+  errorCount       Int               @default(0)
+  startedByUserId  String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  error            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  rows      ImportRow[]
+  companies Company[]
+
+  @@index([status, createdAt])
+}
+
+model ImportRow {
+  id             String          @id @default(cuid())
+  batchId        String
+  rowNumber      Int
+  rawData        Json
+  normalizedData Json?
+  status         ImportRowStatus @default(SKIPPED)
+  companyId      String?
+  message        String?
+  createdAt      DateTime        @default(now())
+
+  batch   ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  company Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, status])
+  @@index([companyId])
+}
+
+// ============================================================================
+//  ANAGRAFICA AZIENDE
+// ============================================================================
+
+model Company {
+  id             String    @id @default(cuid())
+  legalName      String
+  normalizedName String
+  province       String?   @db.Char(2)
+  provinceName   String?
+  pec            String?
+  vatNumber      String?   @unique
+  website        String?
+  sector         String?
+  rawData        Json
+  dedupeHash     String    @unique
+  importBatchId  String?
+  isBlocked      Boolean   @default(false)
+  blockedReason  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  importBatch    ImportBatch?    @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  domains        Domain[]
+  offers         Offer[]
+  communications Communication[]
+  orders         Order[]
+  importRows     ImportRow[]
+  aiUsages       AiUsage[]
+
+  @@index([province])
+  @@index([normalizedName])
+  @@index([importBatchId])
+  @@index([isBlocked])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+//  DOMINI
+// ============================================================================
+
+model Domain {
+  id       String @id @default(cuid())
+  companyId String
+  fqdn     String @unique
+  sld      String
+  extension String
+
+  // output AI (piano probabilistico)
+  aiScore         Int?
+  aiConfidence    Int?
+  aiReasoning     String?
+  aiPromptName    String?
+  aiPromptVersion String?
+  aiInputHash     String? // hash dell'input discovery -> cache del risultato (H.7)
+
+  // ranking deterministico (piano software)
+  rankScore Int?
+
+  // disponibilità (piano software)
+  availabilityResult    AvailabilityResult @default(UNKNOWN)
+  availabilityCheckedAt DateTime?
+  availabilityProvider  String?
+
+  // acquisto manuale
+  status            DomainStatus @default(DISCOVERED)
+  purchasedAt       DateTime?
+  purchasePrice     Decimal?     @db.Decimal(10, 2)
+  purchaseCurrency  String       @default("EUR")
+  registrar         String?
+  purchaseNotes     String?
+  purchasedByUserId String?
+
+  // vendita (prezzo manuale)
+  sellingPrice Decimal? @db.Decimal(10, 2)
+
+  isBlocked     Boolean @default(false)
+  blockedReason String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  availabilityChecks AvailabilityCheck[]
+  offer              Offer?
+  orders             Order[]
+  aiUsages           AiUsage[]
+
+  @@index([companyId])
+  @@index([companyId, aiInputHash])
+  @@index([status])
+  @@index([availabilityResult])
+  @@index([extension])
+  @@index([status, updatedAt])
+  @@index([rankScore])
+  @@index([deletedAt])
+}
+
+model AvailabilityCheck {
+  id            String             @id @default(cuid())
+  domainId      String
+  result        AvailabilityResult
+  provider      String
+  checkedAt     DateTime           @default(now())
+  responseMeta  Json?
+  rawStatusCode Int?
+  error         String?
+  durationMs    Int?
+
+  domain Domain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@index([domainId, checkedAt])
+}
+
+// ============================================================================
+//  OFFERTE + LANDING
+// ============================================================================
+
+model Offer {
+  id              String      @id @default(cuid())
+  companyId       String
+  domainId        String      @unique
+  slug            String      @unique
+  title           String
+  headline        String?
+  bodyHtml        String?
+  price           Decimal     @db.Decimal(10, 2)
+  currency        String      @default("EUR")
+  landingPageUrl  String
+  metaTitle       String?
+  metaDescription String?
+  templateId      String?
+  templateVersion Int?
+  status          OfferStatus @default(DRAFT)
+  publishedAt     DateTime?
+  withdrawnAt     DateTime?
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  domain         Domain            @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  template       MessageTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  communications Communication[]
+  order          Order?
+  views          LandingPageView[]
+
+  @@index([status])
+  @@index([companyId])
+  @@index([templateId])
+  @@index([deletedAt])
+}
+
+model LandingPageView {
+  id        String   @id @default(cuid())
+  offerId   String
+  path      String
+  referrer  String?
+  userAgent String?
+  ipHash    String?
+  country   String?
+  viewedAt  DateTime @default(now())
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId, viewedAt])
+}
+
+// ============================================================================
+//  COMUNICAZIONI PEC
+// ============================================================================
+
+model Communication {
+  id                String               @id @default(cuid())
+  companyId         String
+  offerId           String?
+  channel           CommunicationChannel @default(PEC)
+  recipient         String
+  fromAddress       String
+  subject           String
+  bodyHtml          String
+  bodyText          String?
+  status            CommunicationStatus  @default(DRAFT)
+  templateId        String?
+  templateVersion   Int?
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  queuedAt          DateTime?
+  sentAt            DateTime?
+  providerMessageId String?              @unique
+  retryCount        Int                  @default(0)
+  lastError         String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  company  Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  offer    Offer?           @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  template MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  receipts PecReceipt[]
+
+  @@index([companyId])
+  @@index([offerId])
+  @@index([status])
+  @@index([sentAt])
+  @@index([templateId])
+}
+
+model PecReceipt {
+  id                String      @id @default(cuid())
+  communicationId   String
+  type              ReceiptType
+  receivedAt        DateTime    @default(now())
+  providerMessageId String?
+  parsedData        Json?
+  rawSource         String?
+  note              String?
+
+  communication Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+
+  @@unique([communicationId, type, providerMessageId])
+  @@index([communicationId, type])
+}
+
+// ============================================================================
+//  ORDINI + PAGAMENTI + TRASFERIMENTO
+// ============================================================================
+
+model Order {
+  id           String @id @default(cuid())
+  offerId      String @unique
+  companyId    String
+  domainId     String
+  customerData Json
+  customerEmail String
+  customerVat  String?
+  amount       Decimal       @db.Decimal(10, 2)
+  currency     String        @default("EUR")
+  paymentStatus PaymentStatus @default(PENDING)
+  orderStatus  OrderStatus   @default(PENDING)
+
+  source              OrderSource @default(SPACEDOMINO)
+  /// `orders.orderNumber` dello storefront. Un ordine può contenere più domini:
+  /// l'idempotenza del bridge è su `(externalOrderNumber, domainId)`.
+  externalOrderNumber String?
+  /// `orders.paymentRef` dello storefront (riferimento pagamento Stripe lato spacedomino)
+  externalRef         String?
+
+  stripeCheckoutSessionId String?  @unique
+  stripePaymentIntentId   String? @unique
+  stripeCustomerId        String?
+  paidAt                  DateTime?
+  invoiceNumber           String?
+
+  transferStartedAt   DateTime?
+  transferCompletedAt DateTime?
+  transferMethod      String?
+  transferAuthCodeEnc String? // AES-256-GCM (lib/crypto)
+  transferNotes       String?
+
+  refundedAt   DateTime?
+  refundReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offer        Offer         @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  domain       Domain        @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  stripeEvents StripeEvent[]
+
+  @@unique([externalOrderNumber, domainId], name: "external_order_item")
+  @@index([paymentStatus])
+  @@index([orderStatus])
+  @@index([companyId])
+  @@index([domainId])
+  @@index([source])
+}
+
+/// Idempotenza + audit dei webhook Stripe (sezione 12).
+model StripeEvent {
+  id              String    @id @default(cuid())
+  stripeEventId   String    @unique
+  type            String
+  payload         Json
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  processingError String?
+  orderId         String?
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([type, processedAt])
+  @@index([orderId])
+}
+
+// ============================================================================
+//  COMPLIANCE
+// ============================================================================
+
+model SuppressionEntry {
+  id              String            @id @default(cuid())
+  type            SuppressionType
+  value           String
+  reason          SuppressionReason
+  note            String?
+  createdByUserId String?
+  expiresAt       DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@unique([type, value])
+  @@index([type])
+}
+
+// ============================================================================
+//  OSSERVABILITÀ / AUDIT / JOB / AI USAGE
+// ============================================================================
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorType   ActorType @default(SYSTEM)
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  summary     String?
+  before      Json?
+  after       Json?
+  apiCall     String?
+  error       String?
+  requestId   String?
+  ip          String?
+  createdAt   DateTime  @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+
+model StateTransition {
+  id          String    @id @default(cuid())
+  entityType  String
+  entityId    String
+  fromStatus  String?
+  toStatus    String
+  reason      String?
+  actorType   ActorType @default(SYSTEM)
+  actorUserId String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
+
+model JobRecord {
+  id           String    @id @default(cuid())
+  queue        String
+  name         String
+  bullJobId    String    @unique
+  dedupeKey    String?   @unique
+  status       JobStatus @default(QUEUED)
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3)
+  payload      Json?
+  result       Json?
+  error        String?
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([queue, status])
+  @@index([status, createdAt])
+}
+
+model AiUsage {
+  id                String     @id @default(cuid())
+  callType          AiCallType
+  provider          String
+  model             String
+  promptName        String
+  promptVersion     String
+  companyId         String?
+  domainId          String?
+  inputTokens       Int
+  outputTokens      Int
+  cachedInputTokens Int        @default(0)
+  costUsd           Decimal    @db.Decimal(12, 6)
+  latencyMs         Int
+  success           Boolean
+  error             String?
+  createdAt         DateTime   @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  domain  Domain?  @relation(fields: [domainId], references: [id], onDelete: SetNull)
+
+  @@index([callType, createdAt])
+  @@index([companyId])
+  @@index([domainId])
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  type      String
+  title     String
+  body      String?
+  data      Json?
+  severity  NotificationSeverity @default(INFO)
+  readAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([readAt, createdAt])
+}
+
+// ============================================================================
+//  CONFIGURAZIONE (sezione 29)
+// ============================================================================
+
+model MessageTemplate {
+  id              String       @id @default(cuid())
+  type            TemplateType
+  name            String
+  version         Int          @default(1)
+  subject         String?
+  bodyHtml        String
+  bodyText        String?
+  variables       Json
+  isActive        Boolean      @default(false)
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  offers         Offer[]
+  communications Communication[]
+
+  @@unique([type, name, version])
+  @@index([type, isActive])
+}
+
+model Setting {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  value           Json
+  description     String?
+  category        String?
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}

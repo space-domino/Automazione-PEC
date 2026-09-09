@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+
+FROM node:22-slim AS base
+WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+
+# ---------- deps (incluse devDependencies: serve tsx a runtime) ----------
+FROM base AS deps
+COPY package.json package-lock.json ./
+COPY db/schema.prisma ./db/schema.prisma
+RUN npm ci --include=dev
+
+# ---------- runner ----------
+FROM base AS runner
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npx prisma generate --schema db/schema.prisma
+USER node
+# Il worker esegue TypeScript direttamente via tsx (semplice e sufficiente per l'MVP)
+CMD ["npx", "tsx", "worker/index.ts"]

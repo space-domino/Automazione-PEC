@@ -1,0 +1,16 @@
+# Override per lo SVILUPPO LOCALE: pubblica Postgres e Redis su 127.0.0.1
+# così `npm run dev` / `npm run worker:dev` (sull'host) possono raggiungerli.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis
+#
+# In PRODUZIONE NON usare questo file: `docker compose up -d` e basta
+# (le porte del DB restano non esposte).
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"

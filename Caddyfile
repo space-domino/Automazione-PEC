@@ -1,0 +1,38 @@
+# Caddy — reverse proxy + TLS automatico.
+# Le variabili {$VAR} arrivano da .env (env_file nel compose).
+# In locale, per HTTP senza certificati, sostituisci i blocchi con: http://localhost { reverse_proxy web:3000 }
+
+{
+	email {$ACME_EMAIL}
+}
+
+# ----- Dashboard privata -----
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+	reverse_proxy web:3000
+}
+
+# ----- Landing pubbliche + checkout + webhook Stripe (stessa app Next) -----
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	reverse_proxy web:3000
+}
+
+# ----- n8n (protetto anche dal basic-auth del container) -----
+{$N8N_DOMAIN} {
+	reverse_proxy n8n:5678
+}

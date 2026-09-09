@@ -1,0 +1,53 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+next-env.d.ts
+*.tsbuildinfo
+
+# production build
+/dist
+/build
+
+# env — MAI committare i segreti
+.env
+.env.local
+.env.*.local
+
+# tests / coverage
+/coverage
+/playwright-report
+/test-results
+/blob-report
+/.playwright
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# prisma
+/db/*.db
+/db/*.db-journal
+
+# misc
+*.pem
+/tmp
+
+# file caricati (CSV import) — conservati su volume, non in git
+/data
+
+# artefatti locali (non versionare)
+docker-compose.local.yml
+/scratchpad
+
+# helper one-shot con dati reali del catalogo — NON condividere nel repo (rigenera data/spacedomino-products.json)
+scripts/_build-spacedomino-products.mjs

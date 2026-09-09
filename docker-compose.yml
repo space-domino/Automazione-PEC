@@ -1,0 +1,142 @@
+name: domain-reselling-platform
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    networks: [frontend]
+    security_opt: ["no-new-privileges:true"]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      UPLOADS_DIR: /app/data/uploads
+    volumes:
+      - uploads_data:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks: [frontend, backend]
+    security_opt: ["no-new-privileges:true"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      UPLOADS_DIR: /app/data/uploads
+    volumes:
+      - uploads_data:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const f=require('fs');const s=f.existsSync('/tmp/worker-alive')&&(Date.now()-f.statSync('/tmp/worker-alive').mtimeMs<60000);process.exit(s?0:1)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD non impostata}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+
+  n8n:
+    image: n8nio/n8n:1.74.1
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_DOMAIN:-n8n.localhost}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      GENERIC_TIMEZONE: Europe/Rome
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:?N8N_BASIC_AUTH_PASSWORD non impostata}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks: [frontend, backend]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  pg_data:
+  redis_data:
+  n8n_data:
+  caddy_data:
+  caddy_config:
+  uploads_data:
+
+networks:
+  # esposta a internet solo tramite Caddy (porte 80/443)
+  frontend:
+  # rete di servizio: nessuna porta pubblicata sull'host.
+  # NON "internal": il worker ha bisogno di egress verso AI/RDAP/SMTP.
+  backend:

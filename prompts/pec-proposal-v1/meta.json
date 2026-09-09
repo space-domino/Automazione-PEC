@@ -1,0 +1,11 @@
+{
+  "name": "pec-proposal",
+  "version": "v1",
+  "callType": "TEXT_IMPROVEMENT",
+  "defaultModel": "claude-sonnet-5",
+  "maxTokens": 1500,
+  "thinking": "off",
+  "changelog": [
+    "v1: rifinitura del corpo PEC — migliora chiarezza e persuasività senza inventare fatti, mantiene link e disclaimer"
+  ]
+}
