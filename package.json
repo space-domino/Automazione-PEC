@@ -30,7 +30,9 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "set-pec-template": "tsx scripts/set-pec-template.ts",
+    "check:storefront": "tsx scripts/check-storefront.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
