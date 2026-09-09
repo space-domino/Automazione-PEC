@@ -1,50 +1,75 @@
-const COLORS: Record<string, string> = {
-  // Domain lifecycle
-  DISCOVERED: "bg-neutral-100 text-neutral-600",
-  AVAILABLE: "bg-green-100 text-green-800",
-  REGISTERED: "bg-neutral-100 text-neutral-500",
-  DISCARDED: "bg-neutral-100 text-neutral-400",
-  PURCHASE_PENDING: "bg-amber-100 text-amber-800",
-  PURCHASED: "bg-blue-100 text-blue-800",
-  OFFER_DRAFT: "bg-blue-50 text-blue-700",
-  OFFER_PUBLISHED: "bg-indigo-100 text-indigo-800",
-  PEC_DRAFT: "bg-amber-50 text-amber-700",
-  PEC_APPROVED: "bg-amber-100 text-amber-800",
-  PEC_SENT: "bg-purple-100 text-purple-800",
-  CUSTOMER_INTERESTED: "bg-purple-50 text-purple-700",
-  CHECKOUT_STARTED: "bg-cyan-100 text-cyan-800",
-  PAID: "bg-green-100 text-green-800",
-  SOLD: "bg-green-200 text-green-900",
-  TRANSFER_PENDING: "bg-amber-100 text-amber-800",
-  TRANSFERRED: "bg-green-100 text-green-800",
-  TRANSFER_FAILED: "bg-red-100 text-red-700",
-  REFUNDED: "bg-orange-100 text-orange-800",
-  BLOCKED: "bg-red-100 text-red-700",
-  // Availability
-  UNKNOWN: "bg-neutral-100 text-neutral-500",
-  ERROR: "bg-red-100 text-red-700",
-  // Job / import
-  QUEUED: "bg-neutral-100 text-neutral-600",
-  PENDING: "bg-neutral-100 text-neutral-600",
-  MAPPING: "bg-amber-100 text-amber-800",
-  PROCESSING: "bg-blue-100 text-blue-800",
-  ACTIVE: "bg-blue-100 text-blue-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  PARTIAL: "bg-orange-100 text-orange-800",
-  FAILED: "bg-red-100 text-red-700",
-  RETRYING: "bg-amber-100 text-amber-800",
-  DELAYED: "bg-neutral-100 text-neutral-500",
+// Stato = pallino + parola, mai colore da solo. Tre famiglie semantiche + neutro.
+type Tone = "neutral" | "ok" | "warn" | "danger" | "active" | "flight";
+
+const TONE: Record<Tone, string> = {
+  neutral: "bg-neutral-100 text-neutral-600",
+  ok: "bg-[#e6f4ec] text-[#157a4a]",
+  warn: "bg-[#fbf1dc] text-[#9a6700]",
+  danger: "bg-[#fbe9e7] text-[#b3261e]",
+  active: "bg-[var(--accent-soft)] text-[var(--accent)]",
+  flight: "bg-[#f0ecfb] text-[#6a4bd0]",
 };
 
-export function Badge({ value, muted }: { value: string; muted?: boolean }) {
-  const cls = muted
-    ? "bg-neutral-100 text-neutral-500"
-    : (COLORS[value] ?? "bg-neutral-100 text-neutral-600");
-  return (
-    <span
-      className={`inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${cls}`}
-    >
-      {value}
-    </span>
-  );
+const MAP: Record<string, Tone> = {
+  // Domain
+  DISCOVERED: "neutral",
+  AVAILABLE: "ok",
+  REGISTERED: "neutral",
+  DISCARDED: "neutral",
+  PURCHASE_PENDING: "warn",
+  PURCHASED: "active",
+  OFFER_DRAFT: "warn",
+  OFFER_PUBLISHED: "active",
+  PEC_DRAFT: "warn",
+  PEC_APPROVED: "warn",
+  PEC_SENT: "flight",
+  CUSTOMER_INTERESTED: "flight",
+  CHECKOUT_STARTED: "flight",
+  PAID: "ok",
+  SOLD: "ok",
+  TRANSFER_PENDING: "warn",
+  TRANSFERRED: "ok",
+  TRANSFER_FAILED: "danger",
+  REFUNDED: "warn",
+  BLOCKED: "danger",
+  // Availability
+  UNKNOWN: "neutral",
+  ERROR: "danger",
+  // Offer
+  DRAFT: "warn",
+  PUBLISHED: "active",
+  PAUSED: "neutral",
+  WITHDRAWN: "neutral",
+  // Communication
+  APPROVED: "warn",
+  QUEUED: "neutral",
+  SENDING: "flight",
+  SENT: "flight",
+  ACCEPTED: "flight",
+  DELIVERED: "ok",
+  BOUNCED: "danger",
+  CANCELLED: "neutral",
+  // Order
+  FULFILLMENT_PENDING: "warn",
+  COMPLETED: "ok",
+  // Payment
+  PROCESSING: "flight",
+  SUCCEEDED: "ok",
+  // Job / import
+  PENDING: "neutral",
+  MAPPING: "warn",
+  ACTIVE: "flight",
+  PARTIAL: "warn",
+  FAILED: "danger",
+  RETRYING: "warn",
+  DELAYED: "neutral",
+  // Severity
+  INFO: "neutral",
+  WARN: "warn",
+};
+
+export function Badge({ value, muted }: { value: string | null | undefined; muted?: boolean }) {
+  if (!value) return <span className="text-[var(--ink-faint)]">–</span>;
+  const tone: Tone = muted ? "neutral" : (MAP[value] ?? "neutral");
+  return <span className={`chip ${TONE[tone]}`}>{value}</span>;
 }

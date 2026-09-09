@@ -19,9 +19,7 @@ export function CheckButton({ domainId, small }: { domainId: string; small?: boo
       type="button"
       onClick={run}
       disabled={busy}
-      className={`rounded border border-neutral-300 hover:bg-neutral-50 disabled:opacity-50 ${
-        small ? "px-2 py-0.5 text-xs" : "px-3 py-1.5 text-sm"
-      }`}
+      className={`btn btn-ghost ${small ? "px-2 py-1 text-xs" : ""}`}
     >
       {busy ? "…" : "Verifica"}
     </button>
@@ -54,15 +52,10 @@ export function BulkCheckButton() {
 
   return (
     <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={run}
-        disabled={state === "busy"}
-        className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-      >
-        {state === "busy" ? "In corso…" : "Verifica tutti i non conclusi"}
+      <button type="button" onClick={run} disabled={state === "busy"} className="btn btn-ghost">
+        {state === "busy" ? "In corso…" : "Verifica non conclusi"}
       </button>
-      {msg && <span className="text-xs text-neutral-500">{msg}</span>}
+      {msg && <span className="text-xs text-[var(--ink-soft)]">{msg}</span>}
     </div>
   );
 }

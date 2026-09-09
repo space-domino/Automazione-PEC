@@ -51,7 +51,7 @@ function MiniLine({ data, dataKey }: { data: TimeseriesPoint[]; dataKey: keyof T
         />
         <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={40} />
         <Tooltip contentStyle={{ fontSize: 12 }} />
-        <Line type="monotone" dataKey={dataKey} stroke="#3b82f6" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey={dataKey} stroke="#4b45c6" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );

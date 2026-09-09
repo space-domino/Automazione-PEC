@@ -1,4 +1,4 @@
-import { StatTile } from "@/components/ui/stat-tile";
+import { Metric, PageHeader } from "@/components/ui/page";
 import { aiCostSummary } from "@/services/ai-gateway";
 import { getOverview } from "@/services/catalog/overview";
 import { getTimeseries } from "@/services/catalog/timeseries";
@@ -12,36 +12,49 @@ const eur = (n: number) =>
 export default async function DashboardPage() {
   const [o, ts, ai] = await Promise.all([getOverview(), getTimeseries(14), aiCostSummary()]);
 
+  const funnel: { label: string; value: number }[] = [
+    { label: "Aziende", value: o.companiesImported },
+    { label: "Domini analizzati", value: o.domainsAnalyzed },
+    { label: "Disponibili", value: o.domainsAvailable },
+    { label: "Acquistati", value: o.domainsPurchased },
+    { label: "Offerte pubbl.", value: o.offersPublished },
+    { label: "PEC inviate", value: o.pecSent },
+    { label: "Ordini pagati", value: o.ordersPaid },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="mb-1 text-xl font-semibold">Overview</h1>
-        <p className="text-sm text-neutral-500">Andamento degli ultimi 14 giorni.</p>
+    <div>
+      <PageHeader title="Panoramica" sub="Stato della pipeline e ultimi 14 giorni" />
+
+      <div className="panel mb-5 flex flex-wrap items-stretch">
+        {funnel.map((s, i) => (
+          <div
+            key={s.label}
+            className="min-w-[7.5rem] flex-1 border-[var(--border)] px-4 py-3"
+            style={{ borderLeftWidth: i === 0 ? 0 : 1 }}
+          >
+            <div className="text-2xl font-semibold tabular-nums">{s.value}</div>
+            <div className="mt-0.5 text-xs text-[var(--ink-soft)]">{s.label}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <StatTile label="Aziende importate" value={o.companiesImported} />
-        <StatTile label="Domini analizzati" value={o.domainsAnalyzed} />
-        <StatTile label="Domini disponibili" value={o.domainsAvailable} />
-        <StatTile label="Domini acquistati" value={o.domainsPurchased} />
-        <StatTile label="Offerte pubblicate" value={o.offersPublished} />
-        <StatTile label="PEC inviate" value={o.pecSent} />
-        <StatTile label="Visite landing" value={o.landingViews} />
-        <StatTile label="Ordini" value={o.orders} hint={`${o.ordersPaid} pagati`} />
-        <StatTile label="Fatturato" value={eur(o.revenueEur)} />
-        <StatTile
-          label="Conversion"
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Metric label="Fatturato" value={eur(o.revenueEur)} accent />
+        <Metric
+          label="Conversione"
           value={`${(o.conversionRate * 100).toFixed(1)}%`}
           hint="ordini pagati / PEC"
         />
-        <StatTile
+        <Metric label="Visite landing" value={o.landingViews} />
+        <Metric
           label="AI 24h"
-          value={`$${ai.last24hCostUsd.toFixed(3)}`}
+          value={`$${ai.last24hCostUsd.toFixed(2)}`}
           hint={`budget $${ai.budgetUsd.toFixed(0)}`}
         />
-        <StatTile
+        <Metric
           label="AI totale"
-          value={`$${ai.totalCostUsd.toFixed(3)}`}
+          value={`$${ai.totalCostUsd.toFixed(2)}`}
           hint={`${ai.totalCalls} chiamate · ${ai.failedCalls} ko`}
         />
       </div>

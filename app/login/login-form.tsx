@@ -28,6 +28,8 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     router.refresh();
   }
 
+  const field =
+    "w-full rounded-md border border-[var(--border-strong)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]";
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <input
@@ -36,7 +38,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         autoComplete="username"
         required
         placeholder="Email"
-        className="w-full rounded border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+        className={field}
       />
       <input
         name="password"
@@ -44,14 +46,10 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         autoComplete="current-password"
         required
         placeholder="Password"
-        className="w-full rounded border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+        className={field}
       />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+      <button type="submit" disabled={loading} className="btn btn-primary w-full justify-center">
         {loading ? "…" : "Accedi"}
       </button>
     </form>

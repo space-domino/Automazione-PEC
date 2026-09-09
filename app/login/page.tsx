@@ -15,10 +15,12 @@ export default async function LoginPage({
   const { callbackUrl } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-lg font-semibold">Domain Reselling</h1>
-        <p className="mb-4 text-sm text-neutral-500">Accesso riservato</p>
+    <div className="flex min-h-screen items-center justify-center bg-[var(--bg)] p-4">
+      <div className="panel w-full max-w-sm p-7">
+        <div className="mono mb-1 text-sm font-bold tracking-[0.14em]">
+          SPACE<span className="text-[var(--accent)]">DOMINO</span>
+        </div>
+        <p className="mb-5 text-sm text-[var(--ink-soft)]">Console operativa — accesso riservato</p>
         <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} />
       </div>
     </div>

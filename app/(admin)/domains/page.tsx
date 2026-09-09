@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ResetFilters, SearchInput, SelectFilter } from "@/components/ui/filter-controls";
+import { EmptyRow, PageHeader, TableWrap } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { DOMAIN_GROUPS, listDomains } from "@/services/catalog/domains";
 import Link from "next/link";
@@ -31,116 +32,117 @@ export default async function DomainsPage({
     page,
   });
 
-  const href = (p: number) => {
+  const withFilters = (extra: Record<string, string>, drop: string[] = []) => {
     const u = new URLSearchParams();
-    for (const k of FILTER_KEYS) if (sp[k]) u.set(k, sp[k] as string);
-    if (p > 1) u.set("page", String(p));
+    for (const k of FILTER_KEYS) if (sp[k] && !drop.includes(k)) u.set(k, sp[k] as string);
+    for (const [k, v] of Object.entries(extra)) u.set(k, v);
     const qs = u.toString();
     return qs ? `/domains?${qs}` : "/domains";
   };
-  const groupHref = (g: string) => {
-    const u = new URLSearchParams();
-    for (const k of ["extension", "minRank", "q"]) if (sp[k]) u.set(k, sp[k] as string);
-    if (g !== "all") u.set("group", g);
-    const qs = u.toString();
-    return qs ? `/domains?${qs}` : "/domains";
-  };
+  const pageHref = (p: number) =>
+    p > 1 ? withFilters({ page: String(p) }, ["page"]) : withFilters({}, ["page"]);
+  const groupHref = (g: string) =>
+    g === "all" ? withFilters({}, ["group", "page"]) : withFilters({ group: g }, ["page"]);
 
   const cm = res.availabilityCounts;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Domini</h1>
-          <p className="text-sm text-neutral-500">
-            Disponibili {cm.AVAILABLE ?? 0} · registrati {cm.REGISTERED ?? 0} · da concludere{" "}
-            {(cm.UNKNOWN ?? 0) + (cm.ERROR ?? 0)}
-          </p>
-        </div>
-        <BulkCheckButton />
-      </div>
+    <div>
+      <PageHeader
+        title="Domini"
+        sub={`Disponibili ${cm.AVAILABLE ?? 0} · registrati ${cm.REGISTERED ?? 0} · da verificare ${
+          (cm.UNKNOWN ?? 0) + (cm.ERROR ?? 0)
+        }`}
+        actions={<BulkCheckButton />}
+      />
 
-      <div className="flex flex-wrap gap-3 text-xs">
+      <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 border-b border-[var(--border)] pb-2 text-sm">
         {Object.entries(DOMAIN_GROUPS).map(([k, g]) => (
           <Link
             key={k}
             href={groupHref(k)}
-            className={k === res.groupKey ? "font-semibold" : "text-neutral-500 hover:underline"}
+            aria-current={k === res.groupKey ? "page" : undefined}
+            className={
+              k === res.groupKey
+                ? "font-medium text-[var(--accent)]"
+                : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            }
           >
             {g.label}
           </Link>
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput placeholder="fqdn…" />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SearchInput placeholder="cerca dominio…" />
         <SelectFilter paramKey="extension" label="Estensione" options={EXT_OPTS} />
         <SelectFilter paramKey="minRank" label="Rank" options={RANK_OPTS} />
         <ResetFilters keys={FILTER_KEYS} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="border-b border-neutral-200 text-left text-xs text-neutral-500">
-            <tr>
-              <th className="px-3 py-2">Dominio</th>
-              <th className="px-3 py-2">Azienda</th>
-              <th className="px-3 py-2 text-right">AI</th>
-              <th className="px-3 py-2 text-right">Rank</th>
-              <th className="px-3 py-2">Disponibilità</th>
-              <th className="px-3 py-2">Verificato</th>
-              <th className="px-3 py-2">Stato</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {res.data.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-neutral-400">
-                  Nessun dominio.
-                </td>
-              </tr>
-            )}
-            {res.data.map((d) => (
-              <tr
-                key={d.id}
-                className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
-              >
-                <td className="px-3 py-1.5 font-mono text-xs">
-                  <Link href={`/domains/${d.id}`} className="text-blue-700 hover:underline">
-                    {d.fqdn}
-                  </Link>
-                </td>
-                <td className="px-3 py-1.5">
+      <TableWrap>
+        <thead>
+          <tr>
+            <th>Dominio</th>
+            <th>Azienda</th>
+            <th className="num">AI</th>
+            <th className="num">Rank</th>
+            <th>Disponibilità</th>
+            <th>Stato</th>
+            <th className="num">Azione</th>
+          </tr>
+        </thead>
+        <tbody>
+          {res.data.length === 0 && (
+            <EmptyRow cols={7}>
+              Nessun dominio. Importa un CSV di aziende e lancia la generazione dei candidati.
+            </EmptyRow>
+          )}
+          {res.data.map((d) => (
+            <tr key={d.id}>
+              <td>
+                <Link href={`/domains/${d.id}`} className="rowlink">
+                  {d.fqdn}
+                </Link>
+              </td>
+              <td className="max-w-[16rem] truncate text-sm">
+                <Link href={`/companies/${d.company.id}`} className="hover:underline">
+                  {d.company.legalName}
+                </Link>
+              </td>
+              <td className="num text-sm">{d.aiScore ?? "–"}</td>
+              <td className="num text-sm">{d.rankScore ?? "–"}</td>
+              <td>
+                <Badge value={d.availabilityResult} />
+              </td>
+              <td>
+                <Badge value={d.status} />
+              </td>
+              <td className="num">
+                {d.status === "AVAILABLE" ? (
                   <Link
-                    href={`/companies/${d.company.id}`}
-                    className="text-blue-700 hover:underline"
+                    href={`/domains/${d.id}`}
+                    className="text-xs font-medium text-[var(--accent)] hover:underline"
                   >
-                    {d.company.legalName}
+                    Acquista →
                   </Link>
-                </td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{d.aiScore ?? "–"}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{d.rankScore ?? "–"}</td>
-                <td className="px-3 py-1.5">
-                  <Badge value={d.availabilityResult} />
-                </td>
-                <td className="px-3 py-1.5 text-xs text-neutral-500">
-                  {d.availabilityCheckedAt ? d.availabilityCheckedAt.toLocaleString("it-IT") : "–"}
-                </td>
-                <td className="px-3 py-1.5">
-                  <Badge value={d.status} />
-                </td>
-                <td className="px-3 py-1.5 text-right">
+                ) : (
                   <CheckButton domainId={d.id} small />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </TableWrap>
 
-      <Pagination page={res.page} totalPages={res.totalPages} total={res.total} hrefFor={href} />
+      <div className="mt-3">
+        <Pagination
+          page={res.page}
+          totalPages={res.totalPages}
+          total={res.total}
+          hrefFor={pageHref}
+        />
+      </div>
     </div>
   );
 }

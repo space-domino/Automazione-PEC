@@ -1,53 +1,45 @@
 import { auth, signOut } from "@/lib/auth";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SideNav } from "./side-nav";
 
-// Le sezioni si aggiungono milestone per milestone.
-const NAV = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/companies", label: "Aziende" },
-  { href: "/domains", label: "Domini" },
-  { href: "/import", label: "Import CSV" },
-  { href: "/jobs", label: "Job" },
-  { href: "/audit", label: "Audit" },
-];
-
-export default async function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-56 shrink-0 border-r border-neutral-200 bg-white p-4">
-        <div className="mb-6 text-sm font-semibold">Domain Reselling</div>
-        <nav className="space-y-1">
-          {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="block rounded px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100"
-            >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+      <aside className="flex w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] px-3 py-4">
+        <div className="mb-6 px-2">
+          <div className="mono text-sm font-bold tracking-[0.14em] text-[var(--ink)]">
+            SPACE<span className="text-[var(--accent)]">DOMINO</span>
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--ink-faint)]">Console operativa</div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <SideNav />
+        </div>
+
         <form
           action={async () => {
             "use server";
             await signOut({ redirectTo: "/login" });
           }}
-          className="mt-8"
+          className="mt-4 border-t border-[var(--border)] px-2 pt-3"
         >
-          <button type="submit" className="text-xs text-neutral-500 hover:text-neutral-800">
-            Esci ({session.user.email})
+          <div className="truncate text-[11px] text-[var(--ink-faint)]">{session.user.email}</div>
+          <button
+            type="submit"
+            className="mt-1 text-xs text-[var(--ink-soft)] hover:text-[var(--danger)]"
+          >
+            Esci
           </button>
         </form>
       </aside>
-      <main className="flex-1 p-8">{children}</main>
+
+      <main className="min-w-0 flex-1 px-8 py-7">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
     </div>
   );
 }

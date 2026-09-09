@@ -56,29 +56,17 @@ export function PurchaseActions({ domainId, status, availabilityResult, sellingP
   return (
     <div className="flex flex-wrap items-center gap-2">
       {CAN_PURCHASE.has(status) && (
-        <button
-          type="button"
-          onClick={() => setModal("purchase")}
-          className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white"
-        >
+        <button type="button" onClick={() => setModal("purchase")} className="btn btn-primary">
           Segna come acquistato
         </button>
       )}
       {CAN_PRICE.has(status) && (
-        <button
-          type="button"
-          onClick={() => setModal("price")}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
-        >
+        <button type="button" onClick={() => setModal("price")} className="btn btn-ghost">
           Prezzo vendita{sellingPrice != null ? ` · €${sellingPrice}` : ""}
         </button>
       )}
       {CAN_DISCARD.has(status) && (
-        <button
-          type="button"
-          onClick={() => setModal("discard")}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
-        >
+        <button type="button" onClick={() => setModal("discard")} className="btn btn-ghost">
           Scarta
         </button>
       )}
@@ -86,7 +74,7 @@ export function PurchaseActions({ domainId, status, availabilityResult, sellingP
         <button
           type="button"
           onClick={() => run(() => postJson(`/api/domains/${domainId}/reopen`))}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+          className="btn btn-ghost"
         >
           Riapri
         </button>
@@ -102,7 +90,7 @@ export function PurchaseActions({ domainId, status, availabilityResult, sellingP
               }),
             )
           }
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+          className="btn btn-ghost"
         >
           Sblocca
         </button>
@@ -111,14 +99,14 @@ export function PurchaseActions({ domainId, status, availabilityResult, sellingP
           <button
             type="button"
             onClick={() => setModal("block")}
-            className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+            className="btn btn-ghost text-[var(--danger)]"
           >
             Blocca
           </button>
         )
       )}
 
-      {err && !modal && <span className="text-sm text-red-600">{err}</span>}
+      {err && !modal && <span className="text-sm text-[var(--danger)]">{err}</span>}
 
       {modal === "purchase" && (
         <Modal title="Segna come acquistato" onClose={() => setModal(null)}>
@@ -190,13 +178,13 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-5 shadow-lg">
+      <div className="panel w-full max-w-sm p-5 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-700"
+            className="text-[var(--ink-faint)] hover:text-[var(--ink)]"
           >
             ✕
           </button>
@@ -266,12 +254,8 @@ function PurchaseForm({
           La disponibilità non è AVAILABLE: forza comunque
         </label>
       )}
-      {err && <p className="text-sm text-red-600">{err}</p>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
-      >
+      {err && <p className="text-sm text-[var(--danger)]">{err}</p>}
+      <button type="submit" disabled={busy} className="btn btn-primary w-full justify-center">
         {busy ? "…" : "Conferma acquisto"}
       </button>
     </form>
@@ -309,12 +293,8 @@ function PriceForm({
           className={inputCls}
         />
       </Field>
-      {err && <p className="text-sm text-red-600">{err}</p>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
-      >
+      {err && <p className="text-sm text-[var(--danger)]">{err}</p>}
+      <button type="submit" disabled={busy} className="btn btn-primary w-full justify-center">
         {busy ? "…" : "Salva"}
       </button>
     </form>
@@ -345,12 +325,8 @@ function ReasonForm({
       <Field label={optional ? "Motivo (opzionale)" : "Motivo"}>
         <textarea name="reason" rows={2} required={!optional} className={inputCls} />
       </Field>
-      {err && <p className="text-sm text-red-600">{err}</p>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50"
-      >
+      {err && <p className="text-sm text-[var(--danger)]">{err}</p>}
+      <button type="submit" disabled={busy} className="btn btn-primary w-full justify-center">
         {busy ? "…" : cta}
       </button>
     </form>
@@ -358,13 +334,13 @@ function ReasonForm({
 }
 
 const inputCls =
-  "w-full rounded border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900";
+  "w-full rounded-md border border-[var(--border-strong)] bg-white px-2 py-1.5 text-sm outline-none focus:border-[var(--accent)]";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: il campo di input è passato via children
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-neutral-600">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-[var(--ink-soft)]">{label}</span>
       {children}
     </label>
   );
