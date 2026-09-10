@@ -58,7 +58,7 @@ async function loadOfferBundle(offerId: string) {
 }
 
 async function resolveTemplates(name?: string) {
-  const subject = await db.messageTemplate.findFirst({
+  const legacySubject = await db.messageTemplate.findFirst({
     where: { type: "PEC_SUBJECT", isActive: true },
     orderBy: { version: "desc" },
   });
@@ -80,7 +80,10 @@ async function resolveTemplates(name?: string) {
     }
   }
   if (!body) throw new ValidationError(undefined, "Nessun template PEC_BODY disponibile");
-  return { subject, body };
+  // L'oggetto vive nel body stesso (colonna `subject`); fallback alla vecchia riga PEC_SUBJECT.
+  const subjectText =
+    body.subject ?? legacySubject?.bodyHtml ?? "Disponibilità del dominio {{domain}}";
+  return { subjectText, body };
 }
 
 async function renderFor(offerId: string, opts: ComposeOptions): Promise<RenderedPec> {
@@ -89,27 +92,31 @@ async function renderFor(offerId: string, opts: ComposeOptions): Promise<Rendere
   if (!company.pec) throw new PecRecipientMissingError();
   await assertNotSuppressed(company, domain.fqdn);
 
-  const { subject: subjectTpl, body: bodyTpl } = await resolveTemplates(opts.templateName);
+  const { subjectText, body: bodyTpl } = await resolveTemplates(opts.templateName);
 
   const sellerLegalName = opts.sellerLegalName ?? "Space Domino S.R.L.";
   const sellerContact = opts.sellerContact ?? pecFromAddress();
   const optoutToken = signToken("optout", { c: company.id }, { ttlSec: 400 * 86_400 });
   const optoutUrl = `${env.PUBLIC_BASE_URL.replace(/\/+$/, "")}/api/opt-out?t=${optoutToken}`;
 
+  const listAmount = Number(offer.price);
+  const promo = Number(await getSetting("pec.promo_price")) || 0;
+  const onPromo = promo > 0 && promo < listAmount;
+  const effective = onPromo ? promo : listAmount;
+
   const vars: TemplateVars = {
     company_name: company.legalName,
     domain: domain.fqdn,
-    price: formatPrice(Number(offer.price), offer.currency),
+    price: formatPrice(effective, offer.currency),
+    list_price: formatPrice(listAmount, offer.currency),
+    discount_pct: onPromo ? String(Math.round((1 - effective / listAmount) * 100)) : "",
     offer_url: offer.landingPageUrl,
     seller_legal_name: sellerLegalName,
     seller_contact: sellerContact,
     optout_url: optoutUrl,
   };
 
-  const subject = renderTemplate(
-    subjectTpl?.bodyHtml ?? "Disponibilità del dominio {{domain}}",
-    vars,
-  );
+  const subject = renderTemplate(subjectText, vars);
   const bodyHtml = opts.bodyHtmlOverride
     ? renderTemplate(opts.bodyHtmlOverride, vars)
     : renderTemplate(bodyTpl.bodyHtml, vars);

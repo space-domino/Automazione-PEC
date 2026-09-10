@@ -43,6 +43,12 @@ const DEFAULTS = {
   "pec.auto_compose": true as boolean,
   /** dopo la compose automatica: approva e invia senza intervento umano. Default OFF. */
   "pec.auto_send": false as boolean,
+  /**
+   * Prezzo promo mostrato nella PEC ({{price}}). Se > 0 e < prezzo di listino
+   * dell'offerta, la PEC usa questo come {{price}} e riempie {{list_price}} +
+   * {{discount_pct}}. 0 = nessuna promo (usa il prezzo dell'offerta).
+   */
+  "pec.promo_price": 0 as number,
   "pec.max_per_hour": 20,
   /** MessageTemplate PEC_BODY attivo (id). "" => usa il primo PEC_BODY isActive. */
   "pec.active_template": "" as string,
