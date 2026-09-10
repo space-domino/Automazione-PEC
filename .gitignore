@@ -51,3 +51,7 @@ docker-compose.local.yml
 
 # helper one-shot con dati reali del catalogo — NON condividere nel repo (rigenera data/spacedomino-products.json)
 scripts/_build-spacedomino-products.mjs
+
+# campagna PEC: contiene indirizzi PEC (dati personali) e listini
+scripts/campaign-out/
+scripts/sale-backups/
