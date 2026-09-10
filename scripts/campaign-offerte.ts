@@ -27,6 +27,7 @@ const getArg = (k: string) => {
 const companiesFile =
   getArg("--companies") ?? "C:/Users/Administrator/Downloads/pasted_content_2.txt";
 const sendCsv = getArg("--send");
+const rateArg = getArg("--rate"); // opzionale: imposta pec.max_per_hour prima di accodare
 
 // ---------- utils ----------
 const compact = (s: string) =>
@@ -293,6 +294,15 @@ async function dryRun() {
 async function send(csvPath: string) {
   const { db } = await import("../lib/db");
   const { features } = await import("../lib/env");
+
+  if (rateArg) {
+    const n = Number(rateArg);
+    if (Number.isFinite(n) && n > 0) {
+      const { setSetting, getSetting } = await import("../lib/settings");
+      await setSetting("pec.max_per_hour", Math.round(n));
+      console.log(`pec.max_per_hour = ${await getSetting("pec.max_per_hour")}`);
+    }
+  }
   if (!features.pec) {
     console.error("features.pec = false (SMTP non configurato). Interrompo.");
     process.exit(1);

@@ -49,7 +49,7 @@ const DEFAULTS = {
    * {{discount_pct}}. 0 = nessuna promo (usa il prezzo dell'offerta).
    */
   "pec.promo_price": 0 as number,
-  "pec.max_per_hour": 20,
+  "pec.max_per_hour": 20 as number,
   /** MessageTemplate PEC_BODY attivo (id). "" => usa il primo PEC_BODY isActive. */
   "pec.active_template": "" as string,
   /** cursore UID dell'ultima mail IMAP processata dal poller ricevute */
