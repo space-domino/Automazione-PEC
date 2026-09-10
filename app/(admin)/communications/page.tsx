@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { EmptyRow, PageHeader, TableWrap } from "@/components/ui/page";
+import { getSetting } from "@/lib/settings";
 import { listCommunications } from "@/services/pec";
+import { PecAutomation } from "./pec-automation";
 import { PecRowActions } from "./pec-row-actions";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +13,11 @@ export default async function CommunicationsPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const res = await listCommunications({ status: sp.status, q: sp.q, page: Number(sp.page) || 1 });
+  const [res, autoCompose, autoSend] = await Promise.all([
+    listCommunications({ status: sp.status, q: sp.q, page: Number(sp.page) || 1 }),
+    getSetting("pec.auto_compose"),
+    getSetting("pec.auto_send"),
+  ]);
 
   return (
     <div>
@@ -19,6 +25,7 @@ export default async function CommunicationsPage({
         title="PEC"
         sub={`${res.total} comunicazioni · bozza → approvata → inviata → ricevute`}
       />
+      <PecAutomation initial={{ autoCompose, autoSend }} />
       <TableWrap>
         <thead>
           <tr>
