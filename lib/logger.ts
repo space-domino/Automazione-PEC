@@ -51,6 +51,8 @@ export const logger = pino({
       "STRIPE_WEBHOOK_SECRET",
       "PEC_SMTP_PASS",
       "PEC_IMAP_PASS",
+      "PEC_SMTP_PASS_B64",
+      "PEC_IMAP_PASS_B64",
     ],
     censor: "[redacted]",
   },

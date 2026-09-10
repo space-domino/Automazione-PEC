@@ -410,7 +410,8 @@ export async function autoPublishForDomain(
 /**
  * Dopo la pubblicazione: compone la bozza PEC personalizzata (il template viene
  * reso con dominio + link alla pagina di vendita di QUESTO cliente). Se
- * `pec.auto_send` è attivo, la approva e la invia. NON lancia: gli errori
+ * `pec.auto_send` è attivo, la approva e ne ACCODA l'invio (il worker `pec`
+ * esegue l'SMTP: mai in linea nel processo web). NON lancia: gli errori
  * diventano Notification. La bozza resta comunque disponibile in /communications.
  */
 async function autoPecForOffer(offerId: string, actor: Actor): Promise<void> {
@@ -422,10 +423,10 @@ async function autoPecForOffer(offerId: string, actor: Actor): Promise<void> {
     log.info({ offerId, communicationId: comm.id }, "bozza PEC preparata in automatico");
 
     if (await getSetting("pec.auto_send")) {
-      const { approvePec, sendApprovedPec } = await import("@/services/pec/send");
+      const { approvePec, queuePecSend } = await import("@/services/pec/send");
       await approvePec(comm.id, actor);
-      const res = await sendApprovedPec(comm.id, actor);
-      log.info({ offerId, communicationId: comm.id, res }, "PEC inviata in automatico");
+      const res = await queuePecSend(comm.id, actor);
+      log.info({ offerId, communicationId: comm.id, res }, "PEC accodata per invio automatico");
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

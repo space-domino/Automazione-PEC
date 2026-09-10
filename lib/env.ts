@@ -66,6 +66,14 @@ const schema = z.object({
   PEC_IMAP_USER: z.string().optional(),
   PEC_IMAP_PASS: z.string().optional(),
   PEC_FROM_ADDRESS: z.union([z.string().email(), z.literal("")]).optional(),
+  /**
+   * Password PEC in base64. Se valorizzata, ha precedenza su PEC_*_PASS.
+   * Serve perché dotenv-expand (usato da @next/env) altera i valori con `$`
+   * nel .env: `Pa$$w0rd` diventa `Pa$`. Il base64 non contiene `$` e viene
+   * letto identico da tutti i loader (dotenv puro nel worker, @next/env nel web).
+   */
+  PEC_SMTP_PASS_B64: z.string().optional(),
+  PEC_IMAP_PASS_B64: z.string().optional(),
 
   // ----- Backup / observability / n8n (Milestone 12) -----
   BACKUP_S3_ENDPOINT: z.string().optional(),
@@ -90,7 +98,17 @@ if (!parsed.success) {
   );
 }
 
-export const env = parsed.data;
+/** Decodifica un segreto base64 (ritorna undefined se assente/vuoto). */
+function fromB64(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  return Buffer.from(v, "base64").toString("utf8");
+}
+
+export const env = {
+  ...parsed.data,
+  PEC_SMTP_PASS: fromB64(parsed.data.PEC_SMTP_PASS_B64) ?? parsed.data.PEC_SMTP_PASS,
+  PEC_IMAP_PASS: fromB64(parsed.data.PEC_IMAP_PASS_B64) ?? parsed.data.PEC_IMAP_PASS,
+};
 
 /** Flag di disponibilità dei servizi esterni, per rami condizionali puliti. */
 export const features = {

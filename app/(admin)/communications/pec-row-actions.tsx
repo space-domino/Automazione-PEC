@@ -38,7 +38,8 @@ export function PecRowActions({ id, status }: { id: string; status: string }) {
   const send = () =>
     run("send", async () => {
       if (status === "DRAFT") await post(`/api/communications/${id}/approve`);
-      await post(`/api/communications/${id}/send?sync=1`);
+      // niente ?sync=1: l'invio SMTP lo fa il worker `pec`, mai il processo web.
+      await post(`/api/communications/${id}/send`);
     });
   const cancel = () =>
     run("cancel", () =>
