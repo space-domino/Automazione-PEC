@@ -179,6 +179,7 @@ enum TemplateType {
   PEC_SUBJECT
   PEC_BODY
   LANDING_PAGE
+  EMAIL_BODY
 }
 
 enum NotificationSeverity {
@@ -775,6 +776,25 @@ enum CampaignStatus {
   SENDING
   DONE
   FAILED
+}
+
+/**
+ * Traccia gli invii della mail "completa la registrazione" (SendGrid, non PEC)
+ * per ordine spacedomino: un ordine pagato -> al massimo una mail, mai due.
+ * Niente FK verso Company/Order: questi acquirenti (checkout ospite, solo
+ * email) spesso non hanno un record Company nostro.
+ */
+model AccountSetupEmail {
+  id                  String   @id @default(cuid())
+  externalOrderNumber String   @unique
+  recipient           String
+  domain              String
+  status              String // "sent" | "failed"
+  providerMessageId   String?
+  error               String?
+  createdAt           DateTime @default(now())
+
+  @@index([recipient])
 }
 
 model Setting {

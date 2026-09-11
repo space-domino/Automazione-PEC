@@ -66,6 +66,10 @@ const schema = z.object({
   PEC_IMAP_USER: z.string().optional(),
   PEC_IMAP_PASS: z.string().optional(),
   PEC_FROM_ADDRESS: z.union([z.string().email(), z.literal("")]).optional(),
+
+  // ----- SendGrid (mail transazionali, non PEC) -----
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.union([z.string().email(), z.literal("")]).optional(),
   /**
    * Password PEC in base64. Se valorizzata, ha precedenza su PEC_*_PASS.
    * Serve perché dotenv-expand (usato da @next/env) altera i valori con `$`
@@ -115,6 +119,7 @@ export const features = {
   ai: Boolean(env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY),
   stripe: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET),
   pec: Boolean(env.PEC_SMTP_HOST && env.PEC_SMTP_USER && env.PEC_SMTP_PASS),
+  email: Boolean(env.SENDGRID_API_KEY && env.SENDGRID_FROM_EMAIL),
   backup: Boolean(env.BACKUP_S3_ENDPOINT && env.BACKUP_S3_BUCKET),
   errorTracking: Boolean(env.SENTRY_DSN || env.GLITCHTIP_DSN),
   n8n: Boolean(env.N8N_WEBHOOK_URL),

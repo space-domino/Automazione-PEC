@@ -53,6 +53,7 @@ export const logger = pino({
       "PEC_IMAP_PASS",
       "PEC_SMTP_PASS_B64",
       "PEC_IMAP_PASS_B64",
+      "SENDGRID_API_KEY",
     ],
     censor: "[redacted]",
   },

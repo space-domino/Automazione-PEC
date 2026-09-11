@@ -1,8 +1,12 @@
+import { logger } from "@/lib/logger";
 import { QUEUE_NAMES, getQueue } from "@/lib/queue";
+import { sendPendingAccountSetupEmails } from "@/services/email/account-setup";
 import { syncExternalSales } from "@/services/sales";
 import { pushOffer, removeOffer } from "@/services/spacedomino";
 import type { Job } from "bullmq";
 import { createWorker } from "../lib/create-worker";
+
+const log = logger.child({ worker: "storefront" });
 
 interface StorefrontJobData {
   offerId?: string;
@@ -26,7 +30,13 @@ export function startStorefrontWorker() {
     QUEUE_NAMES.storefront,
     async (job: Job<StorefrontJobData>) => {
       if (job.name === "storefront.sync") {
-        return syncExternalSales({}, { requestId: `job:${job.id}` });
+        const sales = await syncExternalSales({}, { requestId: `job:${job.id}` });
+        // mai far fallire il sync vendite per un problema di SendGrid
+        const setupEmails = await sendPendingAccountSetupEmails().catch((err) => {
+          log.warn({ err }, "poll mail post-acquisto: errore non bloccante");
+          return null;
+        });
+        return { sales, setupEmails };
       }
 
       const { offerId, sld, tld, price } = job.data;
