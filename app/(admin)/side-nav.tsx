@@ -16,6 +16,7 @@ const GROUPS: { title: string; items: { href: string; label: string }[] }[] = [
   {
     title: "Vendite",
     items: [
+      { href: "/campaigns", label: "Campagne" },
       { href: "/communications", label: "PEC" },
       { href: "/templates", label: "Template" },
       { href: "/sales", label: "Ordini" },

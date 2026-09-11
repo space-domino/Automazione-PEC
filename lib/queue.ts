@@ -29,6 +29,7 @@ export const QUEUE_NAMES = {
   storefront: "storefront",
   pec: "pec",
   monitoring: "monitoring",
+  campaigns: "campaigns",
 } as const;
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 

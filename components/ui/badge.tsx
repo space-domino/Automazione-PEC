@@ -66,6 +66,14 @@ const MAP: Record<string, Tone> = {
   // Severity
   INFO: "neutral",
   WARN: "warn",
+  // Campaign (stato campagna, maiuscolo) e riga campagna (minuscolo, spazio distinto)
+  MATCHED: "warn",
+  DONE: "ok",
+  pending: "neutral",
+  conflict: "danger",
+  sent: "ok",
+  failed: "danger",
+  skipped: "neutral",
 };
 
 export function Badge({ value, muted }: { value: string | null | undefined; muted?: boolean }) {

@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { checkRedis } from "@/lib/redis";
 import type { Worker } from "bullmq";
 import { scheduleAvailabilityRecheck, startAvailabilityWorker } from "./queues/availability";
+import { startCampaignsWorker } from "./queues/campaigns";
 import { startDiscoveryWorker } from "./queues/discovery";
 import { startImportWorker } from "./queues/import";
 import { scheduleMonitoringScan, startMonitoringWorker } from "./queues/monitoring";
@@ -45,6 +46,7 @@ async function main() {
     startStorefrontWorker() as unknown as Worker,
     startPecWorker() as unknown as Worker,
     startMonitoringWorker() as unknown as Worker,
+    startCampaignsWorker() as unknown as Worker,
   ];
   log.info({ queues: workers.map((w) => w.name) }, "worker: code registrate");
 

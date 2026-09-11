@@ -5,7 +5,7 @@
 // ============================================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // "native" = engine dell'OS corrente. `prisma generate` gira sia in locale
   // sia dentro il build Docker, quindi ognuno ottiene il proprio engine.
   binaryTargets = ["native"]
@@ -339,10 +339,10 @@ model Company {
 // ============================================================================
 
 model Domain {
-  id       String @id @default(cuid())
+  id        String @id @default(cuid())
   companyId String
-  fqdn     String @unique
-  sld      String
+  fqdn      String @unique
+  sld       String
   extension String
 
   // output AI (piano probabilistico)
@@ -527,17 +527,17 @@ model PecReceipt {
 // ============================================================================
 
 model Order {
-  id           String @id @default(cuid())
-  offerId      String @unique
-  companyId    String
-  domainId     String
-  customerData Json
+  id            String        @id @default(cuid())
+  offerId       String        @unique
+  companyId     String
+  domainId      String
+  customerData  Json
   customerEmail String
-  customerVat  String?
-  amount       Decimal       @db.Decimal(10, 2)
-  currency     String        @default("EUR")
+  customerVat   String?
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("EUR")
   paymentStatus PaymentStatus @default(PENDING)
-  orderStatus  OrderStatus   @default(PENDING)
+  orderStatus   OrderStatus   @default(PENDING)
 
   source              OrderSource @default(SPACEDOMINO)
   /// `orders.orderNumber` dello storefront. Un ordine può contenere più domini:
@@ -546,8 +546,8 @@ model Order {
   /// `orders.paymentRef` dello storefront (riferimento pagamento Stripe lato spacedomino)
   externalRef         String?
 
-  stripeCheckoutSessionId String?  @unique
-  stripePaymentIntentId   String? @unique
+  stripeCheckoutSessionId String?   @unique
+  stripePaymentIntentId   String?   @unique
   stripeCustomerId        String?
   paidAt                  DateTime?
   invoiceNumber           String?
@@ -737,6 +737,44 @@ model MessageTemplate {
 
   @@unique([type, name, version])
   @@index([type, isActive])
+}
+
+// ============================================================================
+//  CAMPAGNE PEC (abbinamento azienda -> dominio a catalogo + invio a lotto)
+// ============================================================================
+
+/**
+ * Una campagna: lista di aziende incollate/caricate, abbinate ai domini già
+ * a catalogo su spacedomino, con invio PEC a lotto tramite worker.
+ * Le righe vivono in `rows` (Json) invece che in una tabella relazionale:
+ * il volume è contenuto (poche centinaia di righe) e lo stato per riga
+ * (dominio scelto, confidenza, esito invio) è intrinsecamente per-campagna.
+ */
+model Campaign {
+  id              String         @id @default(cuid())
+  name            String
+  templateName    String
+  promoPrice      Decimal?       @db.Decimal(10, 2)
+  status          CampaignStatus @default(DRAFT)
+  rows            Json
+  catalogSize     Int            @default(0)
+  createdByUserId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  error           String?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum CampaignStatus {
+  DRAFT
+  MATCHED
+  SENDING
+  DONE
+  FAILED
 }
 
 model Setting {
