@@ -57,6 +57,8 @@ const DEFAULTS = {
   "pec.imap.last_uid": 0 as number,
   /** finestra (giorni) entro cui il poller cerca ricevute alla prima esecuzione */
   "pec.receipts.lookback_days": 14,
+  /** id del Dynamic Template SendGrid per la mail "completa la registrazione". "" = non ancora creato. */
+  "email.account_setup_sendgrid_template_id": "" as string,
 } as const;
 
 export type SettingKey = keyof typeof DEFAULTS;

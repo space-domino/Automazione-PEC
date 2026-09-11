@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { env, features } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { getSetting } from "@/lib/settings";
 import { htmlToText, renderTemplate } from "@/services/pec/render";
 import { fetchCompletedSales } from "@/services/spacedomino";
 import { getAccountSetupTemplate } from "./templates";
@@ -41,9 +42,10 @@ export async function sendPendingAccountSetupEmails(
     return result;
   }
 
-  const tpl = await getAccountSetupTemplate();
-  if (!tpl) {
-    log.warn('template EMAIL_BODY "account-setup" non trovato: mail post-acquisto saltate');
+  const sendgridTemplateId = await getSetting("email.account_setup_sendgrid_template_id");
+  const tpl = sendgridTemplateId ? null : await getAccountSetupTemplate();
+  if (!sendgridTemplateId && !tpl) {
+    log.warn('nessun template SendGrid né EMAIL_BODY "account-setup": mail post-acquisto saltate');
     result.skipped = rows.length;
     return result;
   }
@@ -71,9 +73,18 @@ export async function sendPendingAccountSetupEmails(
     };
 
     try {
-      const subject = renderTemplate(tpl.subject, vars);
-      const html = renderTemplate(tpl.bodyHtml, vars);
-      const res = await sendEmail({ to: row.email, subject, html, text: htmlToText(html) });
+      const res = sendgridTemplateId
+        ? await sendEmail({
+            to: row.email,
+            templateId: sendgridTemplateId,
+            dynamicTemplateData: vars,
+          })
+        : await sendEmail({
+            to: row.email,
+            subject: renderTemplate(tpl!.subject, vars),
+            html: renderTemplate(tpl!.bodyHtml, vars),
+            text: htmlToText(renderTemplate(tpl!.bodyHtml, vars)),
+          });
       await db.accountSetupEmail.create({
         data: {
           externalOrderNumber: row.orderNumber,
