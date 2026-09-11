@@ -1,9 +1,9 @@
 import "dotenv/config";
-import { env } from "../lib/env";
 import { db } from "../lib/db";
+import { env } from "../lib/env";
+import { signToken } from "../lib/tokens";
 import { renderTemplate } from "../services/pec/render";
 import { sendApprovedPec } from "../services/pec/send";
-import { signToken } from "../lib/tokens";
 
 /**
  * Corregge e reinvia la PEC di ABSOLUTE PLAY S.R.L.: la campagna aveva riusato

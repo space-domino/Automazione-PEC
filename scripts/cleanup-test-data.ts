@@ -37,7 +37,9 @@ console.log(`Trovata "${alfa.legalName}" con ${alfa.domains.length} domini.`);
 const eternaholding = await db.domain.findUnique({ where: { fqdn: "eternaholding.it" } });
 const absoluteplay = await db.domain.findUnique({ where: { fqdn: "absoluteplay.it" } });
 const realEterna = await db.company.findFirst({ where: { pec: "eternaholding@pec.it" } });
-const realAbsolute = await db.company.findFirst({ where: { pec: "absoluteplay@pec.alessandria.it" } });
+const realAbsolute = await db.company.findFirst({
+  where: { pec: "absoluteplay@pec.alessandria.it" },
+});
 
 if (eternaholding && realEterna && eternaholding.companyId !== realEterna.id) {
   await db.domain.update({ where: { id: eternaholding.id }, data: { companyId: realEterna.id } });

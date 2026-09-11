@@ -1,9 +1,9 @@
 import "dotenv/config";
-import { env } from "../lib/env";
 import { db } from "../lib/db";
+import { env } from "../lib/env";
+import { signToken } from "../lib/tokens";
 import { renderTemplate } from "../services/pec/render";
 import { sendApprovedPec } from "../services/pec/send";
-import { signToken } from "../lib/tokens";
 
 /**
  * Come campaign-fix-absoluteplay.ts: eternaholding.it era già un'offerta nel DB
@@ -21,7 +21,10 @@ const offer = await db.offer.findFirst({ where: { domainId: domain.id, deletedAt
 if (!offer) throw new Error("offerta per eternaholding.it non trovata");
 
 const realCompany = await db.company.findFirst({ where: { pec: "eternaholding@pec.it" } });
-if (!realCompany) throw new Error("azienda ETERNA HOLDING SRL non trovata nel DB (dovrebbe esistere dalla campagna)");
+if (!realCompany)
+  throw new Error(
+    "azienda ETERNA HOLDING SRL non trovata nel DB (dovrebbe esistere dalla campagna)",
+  );
 
 const wrongCompany = await db.company.findUnique({ where: { id: offer.companyId } });
 console.log(`offerta finora intestata a: ${wrongCompany?.legalName}`);
