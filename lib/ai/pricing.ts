@@ -20,6 +20,9 @@ export const MODEL_PRICING: Record<string, Rate> = {
   // OpenAI: da compilare quando si abilita quel provider.
 };
 
+/** Tool server-side "web_search" di Anthropic: costo fisso a ricerca (non a token). */
+export const WEB_SEARCH_COST_PER_USE_USD = 0.01;
+
 /**
  * Costo in USD. Cache write ~1.25x input, cache read ~0.1x input (Anthropic).
  * Modello sconosciuto -> 0 (loggato altrove), non blocca.

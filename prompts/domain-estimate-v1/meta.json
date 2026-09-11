@@ -1,0 +1,11 @@
+{
+  "name": "domain-estimate",
+  "version": "v1",
+  "callType": "DOMAIN_RANKING",
+  "defaultModel": "claude-sonnet-5",
+  "maxTokens": 500,
+  "thinking": "off",
+  "changelog": [
+    "v1: prima versione — sceglie UN dominio combinando i dati azienda con una ricerca web sul settore"
+  ]
+}

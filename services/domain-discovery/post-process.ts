@@ -17,7 +17,7 @@ export interface ProcessedCandidate {
 // label DNS: 1-63 char, alfanumerico, trattini interni
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
-function toAsciiHost(host: string): string | null {
+export function toAsciiHost(host: string): string | null {
   try {
     const h = new URL(`http://${host}`).hostname;
     return h || null;
@@ -26,7 +26,7 @@ function toAsciiHost(host: string): string | null {
   }
 }
 
-function normSld(raw: string): string {
+export function normSld(raw: string): string {
   return raw
     .normalize("NFKC")
     .trim()
@@ -37,7 +37,7 @@ function normSld(raw: string): string {
     .replace(/^\.+|\.+$/g, "");
 }
 
-function normExt(raw: string): string {
+export function normExt(raw: string): string {
   return raw
     .trim()
     .toLowerCase()
@@ -47,7 +47,7 @@ function normExt(raw: string): string {
 
 const clamp = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
 
-function isValidFqdn(fqdn: string): boolean {
+export function isValidFqdn(fqdn: string): boolean {
   if (fqdn.length > 253) return false;
   const labels = fqdn.split(".");
   return labels.length >= 2 && labels.every((l) => LABEL_RE.test(l));

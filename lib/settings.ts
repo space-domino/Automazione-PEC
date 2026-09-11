@@ -21,6 +21,7 @@ const DEFAULTS = {
   "ai.prompt_versions": {
     "domain-discovery": "v1",
     "domain-ranking": "v1",
+    "domain-estimate": "v1",
     "company-analysis": "v1",
     "pec-generation": "v1",
     "pec-proposal": "v1",

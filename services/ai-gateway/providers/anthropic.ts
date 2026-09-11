@@ -13,6 +13,59 @@ function getClient(): Anthropic {
   return client;
 }
 
+export interface WebResearchResult {
+  text: string;
+  model: string;
+  latencyMs: number;
+  webSearchRequests: number;
+  usage: AiCompleteResult["usage"];
+}
+
+/**
+ * Ricerca sul web (tool server-side Anthropic), testo libero — nessuno schema
+ * JSON: usata come passo preparatorio prima di una chiamata strutturata (es.
+ * stima del dominio migliore, sezione "Campagne"). Anthropic-only: l'altro
+ * provider (OpenAI) non ha un tool equivalente collegato qui.
+ */
+export async function webResearch(
+  system: string,
+  user: string,
+  opts: { model: string; maxTokens: number; maxSearches?: number },
+): Promise<WebResearchResult> {
+  const startedAt = Date.now();
+  const res = await getClient().messages.create({
+    model: opts.model,
+    max_tokens: opts.maxTokens,
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: user }],
+    tools: [
+      {
+        type: "web_search_20260318",
+        name: "web_search",
+        max_uses: opts.maxSearches ?? 5,
+      },
+    ],
+  });
+
+  const text = res.content
+    .filter((b) => b.type === "text")
+    .map((b) => ("text" in b ? b.text : ""))
+    .join("\n");
+
+  return {
+    text,
+    model: res.model,
+    latencyMs: Date.now() - startedAt,
+    webSearchRequests: res.usage.server_tool_use?.web_search_requests ?? 0,
+    usage: {
+      inputTokens: res.usage.input_tokens ?? 0,
+      outputTokens: res.usage.output_tokens ?? 0,
+      cacheReadTokens: res.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: res.usage.cache_creation_input_tokens ?? 0,
+    },
+  };
+}
+
 export const anthropicProvider: AiProvider = {
   name: "anthropic",
 

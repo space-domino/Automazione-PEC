@@ -1,23 +1,29 @@
-export class AiOutputInvalidError extends Error {
+import { ApiError } from "@/lib/api/errors";
+
+export class AiOutputInvalidError extends ApiError {
   constructor(detail: string) {
-    super(`Output AI non conforme allo schema dopo il retry: ${detail}`);
+    super(502, "AI_OUTPUT_INVALID", `Output AI non conforme allo schema dopo il retry: ${detail}`);
     this.name = "AiOutputInvalidError";
   }
 }
 
-export class AiBudgetExceededError extends Error {
+export class AiBudgetExceededError extends ApiError {
   constructor(
     public spentUsd: number,
     public budgetUsd: number,
   ) {
-    super(`Budget AI giornaliero superato: $${spentUsd.toFixed(2)} / $${budgetUsd.toFixed(2)}`);
+    super(
+      429,
+      "AI_BUDGET_EXCEEDED",
+      `Budget AI giornaliero superato: $${spentUsd.toFixed(2)} / $${budgetUsd.toFixed(2)}`,
+    );
     this.name = "AiBudgetExceededError";
   }
 }
 
-export class AiProviderNotConfiguredError extends Error {
+export class AiProviderNotConfiguredError extends ApiError {
   constructor(detail: string) {
-    super(detail);
+    super(503, "AI_NOT_CONFIGURED", detail);
     this.name = "AiProviderNotConfiguredError";
   }
 }

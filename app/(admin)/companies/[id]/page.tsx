@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckButton } from "../../domains/availability-actions";
 import { DiscoveryButton } from "./discovery-button";
+import { EstimateDomainButton } from "./estimate-domain-button";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,17 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
           </div>
         ))}
       </dl>
+
+      {features.ai && (
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-medium text-neutral-700">Stima automatica</h2>
+          <p className="mb-2 text-xs text-neutral-500">
+            Combina i dati dell'azienda con una ricerca web su attività simili, propone UN dominio e
+            ne verifica subito la disponibilità reale (WHOIS/RDAP).
+          </p>
+          <EstimateDomainButton companyId={id} />
+        </div>
+      )}
 
       <div>
         <div className="mb-2 flex items-center justify-between">

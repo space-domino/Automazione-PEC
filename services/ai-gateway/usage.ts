@@ -1,4 +1,4 @@
-import { type TokenUsage, computeCostUsd } from "@/lib/ai/pricing";
+import { type TokenUsage, WEB_SEARCH_COST_PER_USE_USD, computeCostUsd } from "@/lib/ai/pricing";
 import { db } from "@/lib/db";
 import { getSetting } from "@/lib/settings";
 import type { AiCallType } from "@prisma/client";
@@ -12,6 +12,8 @@ export interface RecordUsageArgs {
   companyId?: string | null;
   domainId?: string | null;
   usage: TokenUsage;
+  /** ricerche web effettuate dal tool server-side (costo fisso a ricerca, non a token). */
+  webSearchRequests?: number;
   latencyMs: number;
   success: boolean;
   error?: string | null;
@@ -19,7 +21,8 @@ export interface RecordUsageArgs {
 
 /** Scrive una riga AiUsage e ritorna il costo in USD calcolato. */
 export async function recordUsage(a: RecordUsageArgs): Promise<number> {
-  const costUsd = computeCostUsd(a.model, a.usage);
+  const costUsd =
+    computeCostUsd(a.model, a.usage) + (a.webSearchRequests ?? 0) * WEB_SEARCH_COST_PER_USE_USD;
   await db.aiUsage.create({
     data: {
       callType: a.callType,

@@ -10,6 +10,8 @@ import { postProcessCandidates } from "./post-process";
 
 export { postProcessCandidates } from "./post-process";
 export { buildDiscoveryInput, discoveryInputHash } from "./build-input";
+export { estimateBestDomain } from "./estimate";
+export type { EstimateResult } from "./estimate";
 
 export interface DiscoveryOutcome {
   companyId: string;
