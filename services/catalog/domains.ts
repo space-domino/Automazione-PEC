@@ -39,21 +39,21 @@ export async function listDomains(p: DomainListParams) {
   if (typeof p.minRank === "number") where.rankScore = { gte: p.minRank };
   if (p.q) where.fqdn = { contains: p.q.toLowerCase() };
 
-  const [rows, total, groupCounts] = await Promise.all([
-    db.domain.findMany({
-      where,
-      include: { company: { select: { id: true, legalName: true } } },
-      orderBy: [{ rankScore: "desc" }, { aiScore: "desc" }, { createdAt: "asc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.domain.count({ where }),
-    db.domain.groupBy({
-      by: ["availabilityResult"],
-      where: { deletedAt: null },
-      _count: { _all: true },
-    }),
-  ]);
+  // in sequenza, non Promise.all: query concorrenti sulla stessa connessione
+  // Postgres qui corrompono in modo intermittente il protocollo (vedi companies.ts).
+  const rows = await db.domain.findMany({
+    where,
+    include: { company: { select: { id: true, legalName: true } } },
+    orderBy: [{ rankScore: "desc" }, { aiScore: "desc" }, { createdAt: "asc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.domain.count({ where });
+  const groupCounts = await db.domain.groupBy({
+    by: ["availabilityResult"],
+    where: { deletedAt: null },
+    _count: { _all: true },
+  });
 
   return {
     data: rows,

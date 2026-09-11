@@ -68,11 +68,13 @@ function toView(
 
 /** Elenco del raccoglitore. */
 export async function listPecTemplates(): Promise<PecTemplateListItem[]> {
-  const [rows, activeId, fallback] = await Promise.all([
-    db.messageTemplate.findMany({ where: { type: "PEC_BODY" }, orderBy: { createdAt: "asc" } }),
-    getSetting("pec.active_template"),
-    legacySubject(),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const rows = await db.messageTemplate.findMany({
+    where: { type: "PEC_BODY" },
+    orderBy: { createdAt: "asc" },
+  });
+  const activeId = await getSetting("pec.active_template");
+  const fallback = await legacySubject();
   return rows.map((r) => ({
     id: r.id,
     name: r.name,

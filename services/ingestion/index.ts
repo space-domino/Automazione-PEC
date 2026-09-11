@@ -158,14 +158,13 @@ export async function listRows(
     batchId,
     ...(opts.status ? { status: opts.status } : {}),
   };
-  const [data, total] = await Promise.all([
-    db.importRow.findMany({
-      where,
-      orderBy: { rowNumber: "asc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.importRow.count({ where }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const data = await db.importRow.findMany({
+    where,
+    orderBy: { rowNumber: "asc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.importRow.count({ where });
   return { data, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }

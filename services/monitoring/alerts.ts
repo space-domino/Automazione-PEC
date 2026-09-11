@@ -101,7 +101,9 @@ export interface ScanResult {
 
 /** Esegue i check di rischio + salute e alza un alert per ogni anomalia. */
 export async function scanForAlerts(): Promise<ScanResult> {
-  const [risks, health] = await Promise.all([riskChecks(), systemHealth()]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const risks = await riskChecks();
+  const health = await systemHealth();
   let raised = 0;
 
   for (const c of risks) {
@@ -148,16 +150,15 @@ export async function listNotifications(p: NotificationListParams) {
   const pageSize = Math.min(200, Math.max(1, p.pageSize ?? 50));
   const where: Prisma.NotificationWhereInput = p.unreadOnly ? { readAt: null } : {};
 
-  const [data, total, unread] = await Promise.all([
-    db.notification.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.notification.count({ where }),
-    db.notification.count({ where: { readAt: null } }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const data = await db.notification.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.notification.count({ where });
+  const unread = await db.notification.count({ where: { readAt: null } });
   return {
     data,
     total,

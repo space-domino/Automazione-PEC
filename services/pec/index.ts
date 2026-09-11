@@ -50,16 +50,15 @@ export async function listCommunications(p: CommunicationListParams) {
     ];
   }
 
-  const [data, total] = await Promise.all([
-    db.communication.findMany({
-      where,
-      include: COMM_INCLUDE,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.communication.count({ where }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const data = await db.communication.findMany({
+    where,
+    include: COMM_INCLUDE,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.communication.count({ where });
   return { data, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 

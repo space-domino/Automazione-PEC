@@ -62,58 +62,60 @@ export async function getDashboard(): Promise<Dashboard> {
   const d30 = new Date(now - 30 * 86_400_000);
   const d7 = new Date(now - 7 * 86_400_000);
 
-  const [
-    companies,
-    domainsAnalyzed,
-    domainsAvailable,
-    domainsPurchased,
-    offersPublished,
-    pecByStatus,
-    pecSent,
-    ordersPaid,
-    domainsTransferred,
-    ordersByStatus,
-    revTotal,
-    rev30,
-    rev7,
-    trToStart,
-    trInProgress,
-    trFailed,
-    trDone,
-    ai,
-  ] = await Promise.all([
-    db.company.count({ where: { deletedAt: null } }),
-    db.domain.count({ where: { deletedAt: null, aiScore: { not: null } } }),
-    db.domain.count({ where: { deletedAt: null, availabilityResult: "AVAILABLE" } }),
-    db.domain.count({ where: { deletedAt: null, purchasedAt: { not: null } } }),
-    db.offer.count({ where: { deletedAt: null, status: "PUBLISHED" } }),
-    db.communication.groupBy({ by: ["status"], _count: { _all: true } }),
-    db.communication.count({ where: { status: { in: [...SENT_STATES] } } }),
-    db.order.count({ where: { paymentStatus: "SUCCEEDED" } }),
-    db.domain.count({ where: { deletedAt: null, status: "TRANSFERRED" } }),
-    db.order.groupBy({ by: ["orderStatus"], _count: { _all: true } }),
-    db.order.aggregate({
-      _sum: { amount: true },
-      _avg: { amount: true },
-      _count: { _all: true },
-      where: { paymentStatus: "SUCCEEDED" },
-    }),
-    db.order.aggregate({
-      _sum: { amount: true },
-      where: { paymentStatus: "SUCCEEDED", paidAt: { gte: d30 } },
-    }),
-    db.order.aggregate({
-      _sum: { amount: true },
-      where: { paymentStatus: "SUCCEEDED", paidAt: { gte: d7 } },
-    }),
-    db.order.count({ where: { orderStatus: "PAID", domain: { status: "SOLD" } } }),
-    db.order.count({
-      where: { orderStatus: "FULFILLMENT_PENDING", domain: { status: "TRANSFER_PENDING" } },
-    }),
-    db.order.count({ where: { domain: { status: "TRANSFER_FAILED" } } }),
-    db.order.count({ where: { orderStatus: { in: ["TRANSFERRED", "COMPLETED"] } } }),
-    aiCostSummary(),
-  ]);
+  // in sequenza, non Promise.all: query concorrenti sulla stessa connessione
+  // Postgres qui corrompono in modo intermittente il protocollo (vedi
+  // services/catalog/companies.ts per il dettaglio).
+  const companies = await db.company.count({ where: { deletedAt: null } });
+  const domainsAnalyzed = await db.domain.count({
+    where: { deletedAt: null, aiScore: { not: null } },
+  });
+  const domainsAvailable = await db.domain.count({
+    where: { deletedAt: null, availabilityResult: "AVAILABLE" },
+  });
+  const domainsPurchased = await db.domain.count({
+    where: { deletedAt: null, purchasedAt: { not: null } },
+  });
+  const offersPublished = await db.offer.count({
+    where: { deletedAt: null, status: "PUBLISHED" },
+  });
+  const pecByStatus = await db.communication.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+  });
+  const pecSent = await db.communication.count({ where: { status: { in: [...SENT_STATES] } } });
+  const ordersPaid = await db.order.count({ where: { paymentStatus: "SUCCEEDED" } });
+  const domainsTransferred = await db.domain.count({
+    where: { deletedAt: null, status: "TRANSFERRED" },
+  });
+  const ordersByStatus = await db.order.groupBy({
+    by: ["orderStatus"],
+    _count: { _all: true },
+  });
+  const revTotal = await db.order.aggregate({
+    _sum: { amount: true },
+    _avg: { amount: true },
+    _count: { _all: true },
+    where: { paymentStatus: "SUCCEEDED" },
+  });
+  const rev30 = await db.order.aggregate({
+    _sum: { amount: true },
+    where: { paymentStatus: "SUCCEEDED", paidAt: { gte: d30 } },
+  });
+  const rev7 = await db.order.aggregate({
+    _sum: { amount: true },
+    where: { paymentStatus: "SUCCEEDED", paidAt: { gte: d7 } },
+  });
+  const trToStart = await db.order.count({
+    where: { orderStatus: "PAID", domain: { status: "SOLD" } },
+  });
+  const trInProgress = await db.order.count({
+    where: { orderStatus: "FULFILLMENT_PENDING", domain: { status: "TRANSFER_PENDING" } },
+  });
+  const trFailed = await db.order.count({ where: { domain: { status: "TRANSFER_FAILED" } } });
+  const trDone = await db.order.count({
+    where: { orderStatus: { in: ["TRANSFERRED", "COMPLETED"] } },
+  });
+  const ai = await aiCostSummary();
 
   const pc = (s: string) => pecByStatus.find((r) => r.status === s)?._count._all ?? 0;
   const delivered = pc("DELIVERED");
@@ -191,29 +193,39 @@ export async function getFunnelTimeseries(days = 30): Promise<FunnelPoint[]> {
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - (days - 1));
 
-  const [companies, domains, offers, pecSent, pecDelivered, orders, revenue, transferred] =
-    await Promise.all([
-      db.$queryRaw<RawRow[]>`SELECT date_trunc('day',"createdAt")::date AS d, COUNT(*)::int AS n
-        FROM "Company" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1`,
-      db.$queryRaw<RawRow[]>`SELECT date_trunc('day',"createdAt")::date AS d, COUNT(*)::int AS n
-        FROM "Domain" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1`,
-      db.$queryRaw<RawRow[]>`SELECT date_trunc('day',"publishedAt")::date AS d, COUNT(*)::int AS n
-        FROM "Offer" WHERE "publishedAt" >= ${since} GROUP BY 1`,
-      db.$queryRaw<RawRow[]>`SELECT date_trunc('day',"sentAt")::date AS d, COUNT(*)::int AS n
-        FROM "Communication" WHERE "sentAt" >= ${since} GROUP BY 1`,
-      db.$queryRaw<RawRow[]>`SELECT date_trunc('day',"receivedAt")::date AS d, COUNT(*)::int AS n
-        FROM "PecReceipt" WHERE "receivedAt" >= ${since} AND "type" = 'DELIVERY' GROUP BY 1`,
-      db.$queryRaw<RawRow[]>`SELECT date_trunc('day',"createdAt")::date AS d, COUNT(*)::int AS n
-        FROM "Order" WHERE "createdAt" >= ${since} GROUP BY 1`,
-      db.$queryRaw<
-        RawRow[]
-      >`SELECT date_trunc('day',"paidAt")::date AS d, COALESCE(SUM("amount"),0)::float AS n
-        FROM "Order" WHERE "paidAt" >= ${since} AND "paymentStatus" = 'SUCCEEDED' GROUP BY 1`,
-      db.$queryRaw<
-        RawRow[]
-      >`SELECT date_trunc('day',"transferCompletedAt")::date AS d, COUNT(*)::int AS n
-        FROM "Order" WHERE "transferCompletedAt" >= ${since} GROUP BY 1`,
-    ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const companies = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"createdAt")::date AS d, COUNT(*)::int AS n
+        FROM "Company" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1`;
+  const domains = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"createdAt")::date AS d, COUNT(*)::int AS n
+        FROM "Domain" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1`;
+  const offers = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"publishedAt")::date AS d, COUNT(*)::int AS n
+        FROM "Offer" WHERE "publishedAt" >= ${since} GROUP BY 1`;
+  const pecSent = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"sentAt")::date AS d, COUNT(*)::int AS n
+        FROM "Communication" WHERE "sentAt" >= ${since} GROUP BY 1`;
+  const pecDelivered = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"receivedAt")::date AS d, COUNT(*)::int AS n
+        FROM "PecReceipt" WHERE "receivedAt" >= ${since} AND "type" = 'DELIVERY' GROUP BY 1`;
+  const orders = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"createdAt")::date AS d, COUNT(*)::int AS n
+        FROM "Order" WHERE "createdAt" >= ${since} GROUP BY 1`;
+  const revenue = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"paidAt")::date AS d, COALESCE(SUM("amount"),0)::float AS n
+        FROM "Order" WHERE "paidAt" >= ${since} AND "paymentStatus" = 'SUCCEEDED' GROUP BY 1`;
+  const transferred = await db.$queryRaw<
+    RawRow[]
+  >`SELECT date_trunc('day',"transferCompletedAt")::date AS d, COUNT(*)::int AS n
+        FROM "Order" WHERE "transferCompletedAt" >= ${since} GROUP BY 1`;
 
   const maps = {
     companies: toMap(companies),

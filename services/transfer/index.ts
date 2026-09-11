@@ -298,16 +298,15 @@ export async function listTransfers(p: TransferListParams) {
     ];
   }
 
-  const [rows, total] = await Promise.all([
-    db.order.findMany({
-      where,
-      include: ORDER_INCLUDE,
-      orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.order.count({ where }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const rows = await db.order.findMany({
+    where,
+    include: ORDER_INCLUDE,
+    orderBy: { updatedAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.order.count({ where });
   return {
     data: rows.map(sanitize),
     page,

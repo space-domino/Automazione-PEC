@@ -38,12 +38,19 @@ export async function listActivity(p: ActivityListParams) {
   }
 
   const margin = page * pageSize + pageSize;
-  const [transitions, audits, stTotal, alTotal] = await Promise.all([
-    db.stateTransition.findMany({ where: stWhere, orderBy: { createdAt: "desc" }, take: margin }),
-    db.auditLog.findMany({ where: alWhere, orderBy: { createdAt: "desc" }, take: margin }),
-    db.stateTransition.count({ where: stWhere }),
-    db.auditLog.count({ where: alWhere }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const transitions = await db.stateTransition.findMany({
+    where: stWhere,
+    orderBy: { createdAt: "desc" },
+    take: margin,
+  });
+  const audits = await db.auditLog.findMany({
+    where: alWhere,
+    orderBy: { createdAt: "desc" },
+    take: margin,
+  });
+  const stTotal = await db.stateTransition.count({ where: stWhere });
+  const alTotal = await db.auditLog.count({ where: alWhere });
 
   const merged: ActivityItem[] = [
     ...transitions.map(

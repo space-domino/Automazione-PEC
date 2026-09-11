@@ -26,22 +26,31 @@ export async function getTimeseries(days = 14): Promise<TimeseriesPoint[]> {
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - (days - 1));
 
-  const [companies, domains, pec, views, orders, revenue] = await Promise.all([
-    db.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt")::date AS d, COUNT(*)::int AS n
-      FROM "Company" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`,
-    db.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt")::date AS d, COUNT(*)::int AS n
-      FROM "Domain" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`,
-    db.$queryRaw<Row[]>`SELECT date_trunc('day', "sentAt")::date AS d, COUNT(*)::int AS n
-      FROM "Communication" WHERE "sentAt" >= ${since} GROUP BY 1 ORDER BY 1`,
-    db.$queryRaw<Row[]>`SELECT date_trunc('day', "viewedAt")::date AS d, COUNT(*)::int AS n
-      FROM "LandingPageView" WHERE "viewedAt" >= ${since} GROUP BY 1 ORDER BY 1`,
-    db.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt")::date AS d, COUNT(*)::int AS n
-      FROM "Order" WHERE "createdAt" >= ${since} GROUP BY 1 ORDER BY 1`,
-    db.$queryRaw<
-      Row[]
-    >`SELECT date_trunc('day', "paidAt")::date AS d, COALESCE(SUM("amount"),0)::float AS n
-      FROM "Order" WHERE "paidAt" >= ${since} AND "paymentStatus" = 'SUCCEEDED' GROUP BY 1 ORDER BY 1`,
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const companies = await db.$queryRaw<
+    Row[]
+  >`SELECT date_trunc('day', "createdAt")::date AS d, COUNT(*)::int AS n
+      FROM "Company" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`;
+  const domains = await db.$queryRaw<
+    Row[]
+  >`SELECT date_trunc('day', "createdAt")::date AS d, COUNT(*)::int AS n
+      FROM "Domain" WHERE "createdAt" >= ${since} AND "deletedAt" IS NULL GROUP BY 1 ORDER BY 1`;
+  const pec = await db.$queryRaw<
+    Row[]
+  >`SELECT date_trunc('day', "sentAt")::date AS d, COUNT(*)::int AS n
+      FROM "Communication" WHERE "sentAt" >= ${since} GROUP BY 1 ORDER BY 1`;
+  const views = await db.$queryRaw<
+    Row[]
+  >`SELECT date_trunc('day', "viewedAt")::date AS d, COUNT(*)::int AS n
+      FROM "LandingPageView" WHERE "viewedAt" >= ${since} GROUP BY 1 ORDER BY 1`;
+  const orders = await db.$queryRaw<
+    Row[]
+  >`SELECT date_trunc('day', "createdAt")::date AS d, COUNT(*)::int AS n
+      FROM "Order" WHERE "createdAt" >= ${since} GROUP BY 1 ORDER BY 1`;
+  const revenue = await db.$queryRaw<
+    Row[]
+  >`SELECT date_trunc('day', "paidAt")::date AS d, COALESCE(SUM("amount"),0)::float AS n
+      FROM "Order" WHERE "paidAt" >= ${since} AND "paymentStatus" = 'SUCCEEDED' GROUP BY 1 ORDER BY 1`;
 
   const mC = toMap(companies);
   const mD = toMap(domains);

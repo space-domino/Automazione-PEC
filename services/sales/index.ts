@@ -360,16 +360,15 @@ export async function listOrders(p: OrderListParams) {
     ];
   }
 
-  const [data, total] = await Promise.all([
-    db.order.findMany({
-      where,
-      include: ORDER_INCLUDE,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.order.count({ where }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const data = await db.order.findMany({
+    where,
+    include: ORDER_INCLUDE,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.order.count({ where });
   return { data, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 

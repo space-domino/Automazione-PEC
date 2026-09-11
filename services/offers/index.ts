@@ -82,16 +82,15 @@ export async function listOffers(p: OfferListParams) {
     ];
   }
 
-  const [data, total] = await Promise.all([
-    db.offer.findMany({
-      where,
-      include: OFFER_INCLUDE,
-      orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.offer.count({ where }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const data = await db.offer.findMany({
+    where,
+    include: OFFER_INCLUDE,
+    orderBy: { updatedAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.offer.count({ where });
 
   return { data, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }

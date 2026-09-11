@@ -71,13 +71,19 @@ export interface AiCostSummary {
 /** Riepilogo costi AI per dashboard e GET /api/ai-usage (sezione 28). */
 export async function aiCostSummary(): Promise<AiCostSummary> {
   const since24h = new Date(Date.now() - 24 * 3600 * 1000);
-  const [all, last24h, failed, grouped, budgetUsd] = await Promise.all([
-    db.aiUsage.aggregate({ _sum: { costUsd: true }, _count: { _all: true } }),
-    db.aiUsage.aggregate({ _sum: { costUsd: true }, where: { createdAt: { gte: since24h } } }),
-    db.aiUsage.count({ where: { success: false } }),
-    db.aiUsage.groupBy({ by: ["callType"], _sum: { costUsd: true }, _count: { _all: true } }),
-    getSetting("ai.daily_budget_usd"),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const all = await db.aiUsage.aggregate({ _sum: { costUsd: true }, _count: { _all: true } });
+  const last24h = await db.aiUsage.aggregate({
+    _sum: { costUsd: true },
+    where: { createdAt: { gte: since24h } },
+  });
+  const failed = await db.aiUsage.count({ where: { success: false } });
+  const grouped = await db.aiUsage.groupBy({
+    by: ["callType"],
+    _sum: { costUsd: true },
+    _count: { _all: true },
+  });
+  const budgetUsd = await getSetting("ai.daily_budget_usd");
   return {
     totalCostUsd: Number(all._sum.costUsd ?? 0),
     last24hCostUsd: Number(last24h._sum.costUsd ?? 0),

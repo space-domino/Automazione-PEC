@@ -32,12 +32,11 @@ export async function discoverForCompany(
     return { companyId, created: 0, proposed: 0, skippedCached: false };
   }
 
-  const [allowedExtensions, maxCandidates, promptVersions, ttlDays] = await Promise.all([
-    getSetting("domain.extensions"),
-    getSetting("discovery.max_candidates"),
-    getSetting("ai.prompt_versions"),
-    getSetting("discovery.result_ttl_days"),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const allowedExtensions = await getSetting("domain.extensions");
+  const maxCandidates = await getSetting("discovery.max_candidates");
+  const promptVersions = await getSetting("ai.prompt_versions");
+  const ttlDays = await getSetting("discovery.result_ttl_days");
 
   const input = buildDiscoveryInput(company, allowedExtensions, maxCandidates);
   const inputHash = discoveryInputHash(input);

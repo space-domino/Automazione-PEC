@@ -16,29 +16,30 @@ export interface Overview {
 }
 
 export async function getOverview(): Promise<Overview> {
-  const [
-    companiesImported,
-    domainsAnalyzed,
-    domainsAvailable,
-    domainsPurchased,
-    offersPublished,
-    pecSent,
-    landingViews,
-    orders,
-    ordersPaid,
-    revenueAgg,
-  ] = await Promise.all([
-    db.company.count({ where: { deletedAt: null } }),
-    db.domain.count({ where: { deletedAt: null, aiScore: { not: null } } }),
-    db.domain.count({ where: { deletedAt: null, availabilityResult: "AVAILABLE" } }),
-    db.domain.count({ where: { deletedAt: null, purchasedAt: { not: null } } }),
-    db.offer.count({ where: { deletedAt: null, status: "PUBLISHED" } }),
-    db.communication.count({ where: { status: { in: ["SENT", "ACCEPTED", "DELIVERED"] } } }),
-    db.landingPageView.count(),
-    db.order.count(),
-    db.order.count({ where: { paymentStatus: "SUCCEEDED" } }),
-    db.order.aggregate({ _sum: { amount: true }, where: { paymentStatus: "SUCCEEDED" } }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const companiesImported = await db.company.count({ where: { deletedAt: null } });
+  const domainsAnalyzed = await db.domain.count({
+    where: { deletedAt: null, aiScore: { not: null } },
+  });
+  const domainsAvailable = await db.domain.count({
+    where: { deletedAt: null, availabilityResult: "AVAILABLE" },
+  });
+  const domainsPurchased = await db.domain.count({
+    where: { deletedAt: null, purchasedAt: { not: null } },
+  });
+  const offersPublished = await db.offer.count({
+    where: { deletedAt: null, status: "PUBLISHED" },
+  });
+  const pecSent = await db.communication.count({
+    where: { status: { in: ["SENT", "ACCEPTED", "DELIVERED"] } },
+  });
+  const landingViews = await db.landingPageView.count();
+  const orders = await db.order.count();
+  const ordersPaid = await db.order.count({ where: { paymentStatus: "SUCCEEDED" } });
+  const revenueAgg = await db.order.aggregate({
+    _sum: { amount: true },
+    where: { paymentStatus: "SUCCEEDED" },
+  });
 
   return {
     companiesImported,

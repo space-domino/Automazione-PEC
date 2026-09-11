@@ -88,16 +88,15 @@ export async function listPublicOffers(p: PublicListParams) {
     if (p.maxPrice != null) where.price.lte = p.maxPrice;
   }
 
-  const [rows, total] = await Promise.all([
-    db.offer.findMany({
-      where,
-      select: PUBLIC_SELECT,
-      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.offer.count({ where }),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const rows = await db.offer.findMany({
+    where,
+    select: PUBLIC_SELECT,
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.offer.count({ where });
 
   return {
     data: rows.map(toPublic),

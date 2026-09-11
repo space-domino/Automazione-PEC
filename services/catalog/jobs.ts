@@ -16,16 +16,15 @@ export async function listJobs(p: JobListParams) {
   if (p.queue) where.queue = p.queue;
   if (p.status) where.status = p.status as JobStatus;
 
-  const [data, total, byStatus] = await Promise.all([
-    db.jobRecord.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.jobRecord.count({ where }),
-    db.jobRecord.groupBy({ by: ["status"], _count: { _all: true } }),
-  ]);
+  // in sequenza, non Promise.all: vedi companies.ts per il perché.
+  const data = await db.jobRecord.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+  const total = await db.jobRecord.count({ where });
+  const byStatus = await db.jobRecord.groupBy({ by: ["status"], _count: { _all: true } });
 
   return {
     data,

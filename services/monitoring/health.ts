@@ -81,22 +81,28 @@ export async function riskChecks(): Promise<HealthCheck[]> {
   const oldTransfer = new Date(now - 14 * 86_400_000);
   const last24h = new Date(now - 86_400_000);
 
-  const [availStale, pecStuck, transferStuck, jobsFailed, aiBudget, budget] = await Promise.all([
-    db.domain.count({
-      where: {
-        deletedAt: null,
-        availabilityResult: { in: ["UNKNOWN", "ERROR"] },
-        availabilityCheckedAt: { lt: staleAvail },
-      },
-    }),
-    db.communication.count({ where: { status: "SENDING", updatedAt: { lt: stuckSending } } }),
-    db.order.count({
-      where: { domain: { status: "TRANSFER_PENDING" }, transferStartedAt: { lt: oldTransfer } },
-    }),
-    db.jobRecord.count({ where: { status: "FAILED", finishedAt: { gte: last24h } } }),
-    db.aiUsage.aggregate({ _sum: { costUsd: true }, where: { createdAt: { gte: last24h } } }),
-    getSetting("ai.daily_budget_usd"),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché.
+  const availStale = await db.domain.count({
+    where: {
+      deletedAt: null,
+      availabilityResult: { in: ["UNKNOWN", "ERROR"] },
+      availabilityCheckedAt: { lt: staleAvail },
+    },
+  });
+  const pecStuck = await db.communication.count({
+    where: { status: "SENDING", updatedAt: { lt: stuckSending } },
+  });
+  const transferStuck = await db.order.count({
+    where: { domain: { status: "TRANSFER_PENDING" }, transferStartedAt: { lt: oldTransfer } },
+  });
+  const jobsFailed = await db.jobRecord.count({
+    where: { status: "FAILED", finishedAt: { gte: last24h } },
+  });
+  const aiBudget = await db.aiUsage.aggregate({
+    _sum: { costUsd: true },
+    where: { createdAt: { gte: last24h } },
+  });
+  const budget = await getSetting("ai.daily_budget_usd");
 
   const checks: HealthCheck[] = [
     availStale > 0
@@ -138,14 +144,14 @@ export async function riskChecks(): Promise<HealthCheck[]> {
 }
 
 export async function systemHealth(): Promise<SystemHealth> {
-  const [dbOk, redisOk, queues, pec, storefront, risks] = await Promise.all([
-    checkDb(),
-    checkRedis(),
-    queuesCheck(),
-    features.pec ? pecHealth() : Promise.resolve(null),
-    features.storefront ? pingStorefront() : Promise.resolve(null),
-    riskChecks(),
-  ]);
+  // in sequenza, non Promise.all: vedi services/catalog/companies.ts per il perché
+  // (qui più checkDb/riskChecks condividono la stessa connessione Postgres).
+  const dbOk = await checkDb();
+  const redisOk = await checkRedis();
+  const queues = await queuesCheck();
+  const pec = features.pec ? await pecHealth() : null;
+  const storefront = features.storefront ? await pingStorefront() : null;
+  const risks = await riskChecks();
 
   const checks: HealthCheck[] = [
     { name: "database", status: dbOk ? "ok" : "down" },
